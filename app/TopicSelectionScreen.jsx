@@ -3,13 +3,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React from "react";
 import {
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const TopicSelectionScreen = () => {
@@ -22,19 +22,19 @@ const TopicSelectionScreen = () => {
     { id: 6, name: "Self-Improvement", icon: "trending-up", color: "#FFD166" },
   ];
 
+const handleTopicPress = (topicName) => {
+    router.push(`/group/${topicName.toLowerCase().replace(/\s+/g, "-")}`);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
         <ScrollView contentContainerStyle={styles.container}>
-          {/* Header with Back Button */}
+          {/* Header */}
           <View style={styles.headerContainer}>
-            <TouchableOpacity 
-              style={styles.backButton} 
-              onPress={() => router.back()}
-            >
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <Feather name="arrow-left" size={24} color="#6C63FF" />
             </TouchableOpacity>
-            
             <View style={styles.headerTextContainer}>
               <Text style={styles.title}>Find Your Support Community</Text>
               <Text style={styles.subtitle}>
@@ -43,22 +43,23 @@ const TopicSelectionScreen = () => {
             </View>
           </View>
 
-          {/* Anonymity Badge */}
+          {/* Badge */}
           <View style={styles.anonymityBadge}>
             <Feather name="lock" size={16} color="#6C63FF" />
             <Text style={styles.anonymityText}>Your identity is protected</Text>
           </View>
 
-          {/* Topics Grid */}
+          {/* Grid */}
           <View style={styles.gridContainer}>
             {topics.map((topic) => (
               <TouchableOpacity
                 key={topic.id}
                 style={[styles.topicCard, { backgroundColor: topic.color }]}
-                activeOpacity={0.9}
+                activeOpacity={0.85}
+                onPress={() => handleTopicPress(topic.name)}
               >
                 <View style={styles.iconContainer}>
-                  <Feather name={topic.icon} size={32} color="#fff" />
+                  <Feather name={topic.icon} size={28} color="#fff" />
                 </View>
                 <Text style={styles.topicText}>{topic.name}</Text>
               </TouchableOpacity>
@@ -83,6 +84,7 @@ const TopicSelectionScreen = () => {
 const { width } = Dimensions.get("window");
 const cardSize = (width - 60) / 2;
 
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -93,7 +95,6 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
-    paddingTop: 30,
     paddingBottom: 40,
   },
   headerContainer: {
@@ -112,84 +113,79 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: "#2D3748",
-    marginBottom: 8,
-    lineHeight: 32,
+    marginBottom: 6,
+    lineHeight: 30,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#4A5568",
-    lineHeight: 22,
+    lineHeight: 21,
   },
   anonymityBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(108, 99, 255, 0.1)",
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderRadius: 20,
-    marginBottom: 30,
+    marginBottom: 25,
     alignSelf: "flex-start",
   },
   anonymityText: {
     color: "#6C63FF",
     fontWeight: "500",
-    fontSize: 15,
-    marginLeft: 8,
+    fontSize: 14,
+    marginLeft: 6,
   },
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 30,
   },
   topicCard: {
     width: cardSize,
-    height: cardSize,
-    borderRadius: 20,
-    marginBottom: 20,
+    height: cardSize * 0.9, // Reduced height
+    borderRadius: 16,
+    marginBottom: 16,
     justifyContent: "center",
     alignItems: "center",
-    padding: 15,
+    padding: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-    transform: [{ scale: 1 }],
+    shadowRadius: 8,
+    elevation: 4,
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   topicText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: "#fff",
     textAlign: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.2)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   footer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(108, 99, 255, 0.1)",
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 10,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 20,
   },
   footerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "rgba(108, 99, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
@@ -197,7 +193,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#4A5568",
     fontWeight: "500",
   },

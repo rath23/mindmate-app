@@ -16,6 +16,7 @@ export default function Layout() {
         <Stack.Screen name="JournalEntryScreen" />
         <Stack.Screen name="PastEntriesScreen" />
         <Stack.Screen name="TopicSelectionScreen" />
+        <Stack.Screen name="DailyStreak" />
       </Stack>
 
     </AuthProvider>

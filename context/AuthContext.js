@@ -7,11 +7,35 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = loading
   const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const fetchUserInfo = async (authToken) => {
+  try {
+    const res = await fetch('http://localhost:8080/api/user/me', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch user info');
+
+    const userInfo = await res.json();
+    setUser(userInfo); // 💾 Save in state
+    await AsyncStorage.setItem('user', JSON.stringify(userInfo)); // Optional: store locally
+  } catch (error) {
+    console.error('User fetch failed:', error);
+    setUser(null);
+  }
+};
+
+
 
   const login = async (token) => {
     await AsyncStorage.setItem('token', token);
     setToken(token);
     setIsLoggedIn(true);
+    await fetchUserInfo(token);
   };
 
   const logout = async () => {
@@ -81,7 +105,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout, token }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, token, user }}>
       {children}
     </AuthContext.Provider>
   );

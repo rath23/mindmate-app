@@ -18,8 +18,9 @@ import { AuthContext } from '../context/AuthContext';
 
 const DashboardScreen = () => {
   const [menuVisible, setMenuVisible] = useState(false);
-  const { logout } = useContext(AuthContext);
+  const { logout ,user } = useContext(AuthContext);
   const router = useRouter(); // ← Add this line
+
 
   
 
@@ -73,7 +74,7 @@ const handleMenuPress = async (action) => {
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Hello, Adam</Text>
+              <Text style={styles.greeting}>Hello, {user?.name}</Text>
               <Text style={styles.date}>Today</Text>
             </View>
             <TouchableOpacity onPress={() => setMenuVisible(!menuVisible)}>
@@ -113,7 +114,7 @@ const handleMenuPress = async (action) => {
             <ActionButton text="Check-In" onPress={() => router.push('/moodcheckinscreen')} />
             <ActionButton text="Journal" onPress={() => router.push('/journalnotesscreen')}/>
             <ActionButton text="Talk to" onPress={() => router.push('/TopicSelectionScreen')} />
-            <ActionButton text="Relax" />
+             <ActionButton text="Relax" onPress={() => router.push('/DailyStreak')}/>
           </View>
         </ScrollView>
       </SafeAreaView>

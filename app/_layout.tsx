@@ -1,29 +1,23 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
+// app/_layout.js
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { AuthProvider } from '../context/AuthContext';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
-
+export default function Layout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
+    <AuthProvider>
+      <Stack screenOptions={{headerShown: false}}>
+        < Stack.Screen name = "index"   />
+        <Stack.Screen name="login"  />
+        <Stack.Screen name="register"  />
+        <Stack.Screen name="home"  />
+        <Stack.Screen name="settingscreen"  />
+        <Stack.Screen name="MindMateRegister"  />
+        <Stack.Screen name="moodcheckinscreen"  />
+        <Stack.Screen name="JournalEntryScreen" />
+        <Stack.Screen name="PastEntriesScreen" />
+        <Stack.Screen name="TopicSelectionScreen" />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+
+    </AuthProvider>
   );
 }

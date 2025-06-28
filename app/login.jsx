@@ -20,26 +20,6 @@ const MindMateLogin = () => {
   const [password, setPassword] = useState("");
   const { login } = useContext(AuthContext);
 
-  const getUserInfo = async (token) => {
-  try {
-    const res = await fetch("http://localhost:8080/api/user/me", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!res.ok) throw new Error("Failed to fetch user info");
-
-    const user = await res.json();
-    console.log("Fetched user info:", user);
-
-    // Save to context (optional: add setUser in your AuthContext)
-    // setUser(user); // if you have it
-  } catch (err) {
-    console.error("User info error:", err);
-  }
-};
 
 
   const handleLogin = async () => {
@@ -68,7 +48,6 @@ const MindMateLogin = () => {
 
       const token = data.token; // ✅ Extract token from backend response
       login(token);
-      await getUserInfo(token);
       router.replace("/home"); // ✅ go to home page
       // ✅ Pass token to context
     } catch (error) {

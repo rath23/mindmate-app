@@ -1,4 +1,9 @@
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+
+
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -13,16 +18,34 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const MoodCheckInScreen = () => {
+// Mood enum matching backend values
+const MoodType = {
+  VERY_HAPPY: 'VERY_HAPPY',
+  HAPPY: 'HAPPY',
+  NEUTRAL: 'NEUTRAL',
+  SAD: 'SAD',
+  VERY_SAD: 'VERY_SAD'
+};
+
+const MoodCheckInScreen = ({ navigation }) => {
   const [selectedMood, setSelectedMood] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [note, setNote] = useState('');
+  const [showDisabledMessage, setShowDisabledMessage] = useState(false);
+  const router = useRouter();
   
-  // Emojis from code 1
-  const moodOptions = ['😄', '🙂', '😐', '🙁', '😢'];
+  // Emojis mapped to enum values
+  const moodOptions = [
+    { emoji: '😄', value: MoodType.VERY_HAPPY },
+    { emoji: '🙂', value: MoodType.HAPPY },
+    { emoji: '😐', value: MoodType.NEUTRAL },
+    { emoji: '🙁', value: MoodType.SAD },
+    { emoji: '😢', value: MoodType.VERY_SAD }
+  ];
   
-  // Tags from code 1
+  // Tags
   const tagOptions = ['anxious', 'calm', 'happy', 'energetic', 'tired', 'sad', 'stressed'];
 
   const toggleTag = (tag) => {
@@ -31,31 +54,61 @@ const MoodCheckInScreen = () => {
     );
   };
 
-  const submitMood = async () => {
+  const handleSubmit = () => {
     if (selectedMood === null) {
-      Alert.alert("Please select a mood emoji.");
+      // Show message when user tries to submit without selecting mood
+      setShowDisabledMessage(true);
+      
+      // Hide message after 3 seconds
+      setTimeout(() => setShowDisabledMessage(false), 3000);
       return;
     }
+    submitMood();
+  };
 
-    try {
-      const payload = {
-        mood: selectedMood,
-        tags: selectedTags,
-        note: note,
-        timestamp: new Date().toISOString()
-      };
+const submitMood = async () => {
+  try {
+    const token = await AsyncStorage.getItem('token');
 
-      // Replace with your actual backend endpoint
-      await axios.post('https://your-backend.com/api/mood/checkin', payload);
+    const payload = {
+      mood: selectedMood,
+      tags: selectedTags,
+      note: note,
+      timestamp: new Date().toISOString()
+    };
 
+    const response = await axios.post(
+      'http://localhost:8080/api/mood', // ✅ Your backend endpoint
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` // ✅ Add token here
+        }
+      }
+    );
+
+    if (response.status === 200 || response.status === 201) {
       Alert.alert("Mood submitted successfully!");
-      setSelectedMood(null);
-      setSelectedTags([]);
-      setNote('');
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Failed to submit mood.");
+      resetForm();
+    } else {
+      throw new Error(`Unexpected status: ${response.status}`);
     }
+  } catch (error) {
+    console.error('Submission error:', error);
+    Alert.alert(
+      "Failed to submit mood", 
+      error.response?.data?.message || "Please check your connection and try again."
+    );
+  }
+};
+
+
+  const resetForm = () => {
+    setSelectedMood(null);
+    setSelectedTags([]);
+    setNote('');
+    setShowDisabledMessage(false);
   };
 
   return (
@@ -74,27 +127,39 @@ const MoodCheckInScreen = () => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
+          {/* Header with Back Button */}
           <View style={styles.header}>
-            <Text style={styles.title}>Daily Mood Check-In</Text>
-            <Text style={styles.time}>Today • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Feather name="chevron-left" size={28} color="#4a5568" />
+            </TouchableOpacity>
+            
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title}>Daily Mood Check-In</Text>
+              <Text style={styles.time}>Today • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </View>
           </View>
 
           {/* Emoji Question */}
           <Text style={styles.question}>How are you feeling?</Text>
           
-          {/* Emoji Selection - Using code 1's approach */}
+          {/* Emoji Selection */}
           <View style={styles.emojiRow}>
-            {moodOptions.map((mood, index) => (
+            {moodOptions.map((moodOption, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.emojiButton,
-                  selectedMood === index && styles.selectedEmoji
+                  selectedMood === moodOption.value && styles.selectedEmoji
                 ]}
-                onPress={() => setSelectedMood(index)}
+                onPress={() => {
+                  setSelectedMood(moodOption.value);
+                  setShowDisabledMessage(false);
+                }}
               >
-                <Text style={styles.emoji}>{mood}</Text>
+                <Text style={styles.emoji}>{moodOption.emoji}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -135,13 +200,28 @@ const MoodCheckInScreen = () => {
             onChangeText={setNote}
           />
 
-          {/* Submit Button */}
+          {/* Submit Button with Clear Disabled State */}
           <TouchableOpacity 
-            style={styles.submitButton}
-            onPress={submitMood}
+            style={[
+              styles.submitButton,
+              selectedMood === null && styles.disabledButton
+            ]}
+            onPress={handleSubmit}
           >
-            <Text style={styles.submitText}>Submit</Text>
+            <Text style={styles.submitText}>
+              {selectedMood ? "Submit Mood" : "Select a Mood"}
+            </Text>
           </TouchableOpacity>
+          
+          {/* Disabled State Explanation */}
+          {showDisabledMessage && (
+            <View style={styles.messageContainer}>
+              <Icon name="information-circle" size={20} color="#e53e3e" />
+              <Text style={styles.disabledText}>
+                Please select a mood to submit your check-in
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -162,16 +242,28 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 32,
+    paddingTop: 8,
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#2d3748',
     marginBottom: 4,
   },
   time: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#718096',
   },
   question: {
@@ -179,6 +271,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2d3748',
     marginBottom: 20,
+    textAlign: 'center',
   },
   emojiRow: {
     flexDirection: 'row',
@@ -275,10 +368,29 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  disabledButton: {
+    backgroundColor: '#e2e8f0',
+  },
   submitText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  disabledText: {
+    color: '#e53e3e',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    padding: 8,
+    backgroundColor: '#fff5f5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fed7d7',
   },
 });
 

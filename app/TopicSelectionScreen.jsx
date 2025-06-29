@@ -22,14 +22,15 @@ const TopicSelectionScreen = () => {
     { id: 6, name: "Self-Improvement", icon: "trending-up", color: "#FFD166" },
   ];
 
-const handleTopicPress = (topicName) => {
-    router.push(`/group/${topicName.toLowerCase().replace(/\s+/g, "-")}`);
+  const handleTopicPress = (topicName) => {
+    const slug = topicName.toLowerCase().replace(/\s+/g, "-");
+    router.push(`/group/${slug}`);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.headerContainer}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -49,7 +50,7 @@ const handleTopicPress = (topicName) => {
             <Text style={styles.anonymityText}>Your identity is protected</Text>
           </View>
 
-          {/* Grid */}
+          {/* Topic Grid */}
           <View style={styles.gridContainer}>
             {topics.map((topic) => (
               <TouchableOpacity
@@ -66,7 +67,7 @@ const handleTopicPress = (topicName) => {
             ))}
           </View>
 
-          {/* Footer */}
+          {/* Footer Message */}
           <View style={styles.footer}>
             <View style={styles.footerIcon}>
               <Feather name="users" size={20} color="#6C63FF" />
@@ -83,7 +84,6 @@ const handleTopicPress = (topicName) => {
 
 const { width } = Dimensions.get("window");
 const cardSize = (width - 60) / 2;
-
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   topicCard: {
     width: cardSize,
-    height: cardSize * 0.9, // Reduced height
+    height: cardSize * 0.9,
     borderRadius: 16,
     marginBottom: 16,
     justifyContent: "center",

@@ -91,6 +91,7 @@ const submitMood = async () => {
     if (response.status === 200 || response.status === 201) {
       Alert.alert("Mood submitted successfully!");
       resetForm();
+      router.replace("/selfcarescreen");
     } else {
       throw new Error(`Unexpected status: ${response.status}`);
     }

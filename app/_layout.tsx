@@ -19,8 +19,8 @@ export default function Layout() {
         <Stack.Screen name="DailyStreak" />
          <Stack.Screen
           name="group/[topic]"
-          
         />
+        <Stack.Screen name="selfcarescreen" />
       </Stack>
 
     </AuthProvider>

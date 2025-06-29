@@ -1,228 +1,422 @@
-import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
+
+import { Client } from "@stomp/stompjs";
+import { useLocalSearchParams } from "expo-router";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import {
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import SockJS from "sockjs-client";
+import { AuthContext } from '../../context/AuthContext';
 
-export default function GroupChatScreen() {
-  const [message, setMessage] = useState("");
-  const router = useRouter();
-  const { topic } = useLocalSearchParams(); // Get the topic from the URL
+const GroupChatScreen = () => {
+  const {user } = useContext(AuthContext);
+  const { topic } = useLocalSearchParams();
+  const [messageText, setMessageText] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState("");
+  const [nickname, setNickname] = useState("");
+  const flatListRef = useRef(null);
+  const stompClient = useRef(null);
 
-  const chatMessages = [
-    { id: 1, text: "I'm feeling really overwhelmed right now.", sender: null },
-    {
-      id: 2,
-      text: "I'm sorry to hear that.\nWhat's on your mind?",
-      sender: "Student_92",
-    },
-    {
-      id: 3,
-      text: "It helps me to make a list of priorities",
-      sender: "Hopeful Heart",
-    },
-    { id: 4, text: "Good idea. I'll try that, thanks", sender: "Student_92" },
-  ];
+  // Generate unique user ID and nickname
+  useEffect(() => {
+    const initUser = async () => {
+      let storedId = user.id 
+      let storedNickname = user.nickName;
 
-  const handleSend = () => {
-    if (message.trim()) {
-      console.log("Sending message:", message);
-      setMessage("");
+      console.log("Stored ID:", storedId);
+      console.log("Stored Nickname:", storedNickname);
+
+      // if (!storedId) {
+      //   storedId = uuidv4();
+      //   await AsyncStorage.setItem("@userId", storedId);
+      // }
+
+      // If nickname isn't already saved, fetch from backend
+      if (!storedNickname) {
+
+          console.error("Nickname fetch error:", err.message);
+          storedNickname = `User${Math.floor(Math.random() * 10000)}`;
+          await AsyncStorage.setItem("@nickname", storedNickname);
+        }
+      
+
+      setUserId(storedId);
+      setNickname(storedNickname);
+    };
+
+    initUser();
+  }, []);
+
+  // Connect to WebSocket
+useEffect(() => {
+  const connectWebSocket = async () => {
+    if (!userId || !nickname) return;
+
+    const token = await AsyncStorage.getItem("token");
+    const socket = new SockJS("http://localhost:8080/ws-chat");
+
+    stompClient.current = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      debug: (str) => console.log(str),
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    stompClient.current.onConnect = () => {
+      console.log("Connected to WebSocket");
+      stompClient.current.subscribe(`/topic/chat.${topic}`, (message) => {
+        const newMessage = JSON.parse(message.body);
+        setChatMessages((prev) => [...prev, newMessage]);
+      });
+    };
+
+    stompClient.current.onStompError = (frame) => {
+      console.error("Broker error:", frame.headers["message"]);
+      console.error("Details:", frame.body);
+    };
+
+    stompClient.current.activate();
+  };
+
+  connectWebSocket();
+
+  return () => {
+    if (stompClient.current) {
+      stompClient.current.deactivate();
+      console.log("WebSocket disconnected");
+    }
+  };
+}, [topic, userId, nickname]);
+
+
+  // Fetch chat history
+const fetchMessages = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const response = await fetch(
+      `http://localhost:8080/api/messages/${topic}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch messages");
+    }
+
+    const messages = await response.json();
+    setChatMessages(messages);
+  } catch (err) {
+    console.error(err.message);
+    Alert.alert("Error", "Failed to load chat history");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // Send message via WebSocket
+  const sendMessage = () => {
+    if (!messageText.trim()) return;
+
+    const message = {
+      room: topic,
+      senderNickname: nickname,
+      content: messageText,
+    };
+
+    if (stompClient.current && stompClient.current.connected) {
+      stompClient.current.publish({
+        destination: `/app/chat.send`,
+        body: JSON.stringify(message),
+      });
+      setMessageText("");
+    } else {
+      Alert.alert("Error", "Not connected to chat server");
     }
   };
 
-  const formattedTopic = topic
-    ? topic.charAt(0).toUpperCase() + topic.slice(1).replace(/-/g, " ")
-    : "Chatroom";
+  // Report a user when tapping on their message
+  const handleReportUser = (reportedNickname) => {
+    if (reportedNickname === nickname) {
+      Alert.alert("Cannot report yourself");
+      return;
+    }
+
+    Alert.alert(
+      "Report User",
+      `Report ${reportedNickname} for inappropriate behavior?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Report",
+          onPress: () => submitReport(reportedNickname),
+          style: "destructive",
+        },
+      ]
+    );
+  };
+
+const submitReport = async (reportedNickname) => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const response = await fetch(
+      `http://localhost:8080/api/report?reporter=${nickname}&reported=${reportedNickname}&room=${topic}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.ok) {
+      Alert.alert("Success", `${reportedNickname} has been reported`);
+    } else {
+      throw new Error("Failed to report user");
+    }
+  } catch (err) {
+    console.error(err.message);
+    Alert.alert("Error", "Failed to report user");
+  }
+};
+
+
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+
+  // Render message with tap-to-report functionality
+  const renderMessage = ({ item }) => (
+    <TouchableOpacity
+      onPress={() => {
+        // Only allow reporting other users
+        if (item.senderNickname !== nickname) {
+          handleReportUser(item.senderNickname);
+        }
+      }}
+      delayLongPress={300}
+    >
+      <View
+        style={[
+          styles.messageBubble,
+          item.senderNickname === nickname
+            ? styles.myMessage
+            : styles.otherMessage,
+        ]}
+      >
+        <Text
+          style={[
+            styles.senderName,
+            item.senderNickname === nickname
+              ? styles.mySenderName
+              : styles.otherSenderName,
+          ]}
+        >
+          {item.senderNickname === nickname ? "You" : item.senderNickname}
+        </Text>
+        <Text
+          style={[
+            styles.messageText,
+            item.senderNickname === nickname
+              ? styles.myMessageText
+              : styles.otherMessageText,
+          ]}
+        >
+          {item.content}
+        </Text>
+        <Text
+          style={[
+            styles.timestamp,
+            item.senderNickname === nickname
+              ? styles.myTimestamp
+              : styles.otherTimestamp,
+          ]}
+        >
+          {new Date(item.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        backgroundColor="#f8f9fe"
-        barStyle="dark-content"
-        translucent
-      />
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.roomTitle}>#{topic.replace(/-/g, " ")}</Text>
+      <Text style={styles.userInfo}>Your nickname: {nickname}</Text>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="chevron-left" size={24} color="#4299e1" />
-        </TouchableOpacity>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Loading messages...</Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={chatMessages}
+          keyExtractor={(item, index) =>
+            item.id?.toString() || index.toString()
+          }
+          renderItem={renderMessage}
+          contentContainerStyle={styles.chatContainer}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text>No messages yet. Be the first to say something!</Text>
+            </View>
+          }
+        />
+      )}
 
-        <Text style={styles.headerTitle}>Anonymous Peer Chat</Text>
-        <TouchableOpacity style={styles.reportButton}>
-          <Text style={styles.reportText}>Report</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Chat Info */}
-      <View style={styles.chatInfo}>
-        <Text style={styles.chatRoom}>{formattedTopic} Chatroom</Text>
-        <Text style={styles.yourName}>You're connected as CalmWave</Text>
-      </View>
-
-      {/* Chat Messages */}
-      <ScrollView
-        style={styles.chatContainer}
-        contentContainerStyle={styles.chatContent}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.inputContainer}
       >
-        {chatMessages.map((msg) => (
-          <View
-            key={msg.id}
-            style={[
-              styles.messageBubble,
-              msg.sender ? styles.otherMessage : styles.yourMessage,
-            ]}
-          >
-            {msg.sender && <Text style={styles.senderName}>{msg.sender}</Text>}
-            <Text style={styles.messageText}>{msg.text}</Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      {/* Message Input */}
-      <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
-          value={message}
-          onChangeText={setMessage}
+          style={styles.textInput}
           placeholder="Type a message..."
-          placeholderTextColor="#a0aec0"
+          value={messageText}
+          onChangeText={setMessageText}
           multiline
         />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Text style={styles.sendText}>Send</Text>
+        <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
+          <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f8f9fe",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  headerTitle: {
-    fontSize: 18,
+  container: { flex: 1, backgroundColor: "#fff" },
+  roomTitle: {
+    fontSize: 20,
     fontWeight: "700",
-    color: "#2d3748",
+    textAlign: "center",
+    marginVertical: 8,
+    color: "#6C63FF",
   },
-  reportButton: {
-    backgroundColor: "#f8f9fe",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#e53e3e",
-  },
-  reportText: {
-    fontWeight: "500",
-    color: "#e53e3e",
-  },
-  chatInfo: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  chatRoom: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#2d3748",
-    marginBottom: 4,
-  },
-  yourName: {
+  userInfo: {
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 12,
     fontSize: 14,
-    color: "#718096",
   },
   chatContainer: {
-    flex: 1,
-    backgroundColor: "#f8f9fe",
-  },
-  chatContent: {
-    padding: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   messageBubble: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
     maxWidth: "80%",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
   },
-  yourMessage: {
-    backgroundColor: "#ebf4ff",
+  myMessage: {
     alignSelf: "flex-end",
-    borderBottomRightRadius: 4,
+    backgroundColor: "#6C63FF",
+    borderBottomRightRadius: 2,
   },
   otherMessage: {
-    backgroundColor: "#fff",
     alignSelf: "flex-start",
-    borderBottomLeftRadius: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    backgroundColor: "#e4e4e4",
+    borderBottomLeftRadius: 2,
   },
   senderName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#2d3748",
+    fontWeight: "bold",
+    fontSize: 12,
     marginBottom: 4,
+  },
+  mySenderName: {
+    color: "rgba(255,255,255,0.8)",
+  },
+  otherSenderName: {
+    color: "rgba(0,0,0,0.6)",
   },
   messageText: {
     fontSize: 16,
-    lineHeight: 24,
-    color: "#4a5568",
+  },
+  myMessageText: {
+    color: "#fff",
+  },
+  otherMessageText: {
+    color: "#000",
+  },
+  timestamp: {
+    fontSize: 10,
+    alignSelf: "flex-end",
+    marginTop: 4,
+  },
+  myTimestamp: {
+    color: "rgba(255,255,255,0.7)",
+  },
+  otherTimestamp: {
+    color: "rgba(0,0,0,0.5)",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
+    padding: 12,
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    backgroundColor: "#fff",
+    borderColor: "#ccc",
+    backgroundColor: "#f9f9f9",
   },
-  input: {
+  textInput: {
     flex: 1,
-    backgroundColor: "#edf2f7",
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    minHeight: 48,
-    maxHeight: 120,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ccc",
     marginRight: 10,
-    fontSize: 16,
-    color: "#2d3748",
+    maxHeight: 100,
   },
   sendButton: {
-    backgroundColor: "#4299e1",
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    backgroundColor: "#6C63FF",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  sendText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+  sendButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
   },
 });
+
+export default GroupChatScreen;

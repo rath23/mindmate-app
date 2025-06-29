@@ -36,8 +36,6 @@ const MindMateLogin = () => {
         }),
       });
 
-      console.log(response);
-
       if (!response.ok) {
         throw new Error(`Login failed: ${response.status}`);
       }

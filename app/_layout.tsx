@@ -21,6 +21,7 @@ export default function Layout() {
           name="group/[topic]"
         />
         <Stack.Screen name="selfcarescreen" />
+        <Stack.Screen name="moodanalysisscreen" />
       </Stack>
 
     </AuthProvider>

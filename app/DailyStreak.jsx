@@ -1,14 +1,18 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Easing,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  Dimensions,
+  Easing,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const DailyStreak = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -32,6 +36,37 @@ const DailyStreak = () => {
     ).start();
   }, []);
 
+  // Updated badges array with unlocked status
+  const badges = [
+    { name: 'Mood Rookie', desc: "You've logged your first mood!", color: ['#8C6BFF', '#6341FF'], unlocked: true },
+    { name: 'Streak Starter', desc: "You're on a roll!", color: ['#F9A825', '#FF6F00'], unlocked: true },
+    { name: 'Feelings Pro', desc: 'Keeping up with your emotions consistently.', color: ['#2196F3', '#1976D2'], unlocked: false },
+    { name: 'Emotional Explorer', desc: 'You’ve explored the full mood spectrum!', color: ['#4CAF50', '#2E7D32'], unlocked: true },
+    { name: 'Reflective Soul', desc: 'You’ve started your journaling journey.', color: ['#BA68C8', '#8E24AA'], unlocked: false },
+    { name: 'Insight Seeker', desc: 'You’re digging deep into your thoughts.', color: ['#9575CD', '#512DA8'], unlocked: false },
+    { name: 'Daily Writer', desc: "You're building a writing habit!", color: ['#03A9F4', '#0288D1'], unlocked: true },
+    { name: 'Calm Beginner', desc: 'Breathe in, breathe out — great job!', color: ['#00BCD4', '#0097A7'], unlocked: true },
+    { name: 'Zen Explorer', desc: 'Exploring ways to relax.', color: ['#4DB6AC', '#00796B'], unlocked: false },
+    { name: 'Mindful Master', desc: 'You’re becoming a mindfulness expert.', color: ['#388E3C', '#1B5E20'], unlocked: false },
+    { name: 'Hello There!', desc: 'You reached out — well done!', color: ['#FFC107', '#FFA000'], unlocked: false },
+    { name: 'Supporter', desc: 'You helped someone feel heard.', color: ['#FF9800', '#F57C00'], unlocked: false },
+    { name: 'Active Listener', desc: 'You’re contributing to the community.', color: ['#FF5722', '#E64A19'], unlocked: false },
+    { name: '7-Day Streak', desc: 'A full week of self-care.', color: ['#CDDC39', '#AFB42B'], unlocked: false },
+    { name: '14-Day Warrior', desc: 'Amazing consistency!', color: ['#8BC34A', '#689F38'], unlocked: false },
+    { name: '30-Day MindMate', desc: 'Your mental health matters.', color: ['#009688', '#00695C'], unlocked: false },
+    { name: 'Comeback Kid', desc: 'Welcome back!', color: ['#795548', '#4E342E'], unlocked: true },
+  ];
+
+  // Function to get badge icon based on unlocked status
+  const getBadgeIcon = (unlocked) => {
+    return unlocked ? 'military-tech' : 'lock';
+  };
+
+  // Function to get icon color based on unlocked status
+  const getIconColor = (unlocked) => {
+    return unlocked ? '#FFD700' : '#A0AEC0';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
@@ -40,77 +75,96 @@ const DailyStreak = () => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Daily Check-In Streak</Text>
-          <LinearGradient
-            colors={['#FF9E44', '#FF7A00']}
-            style={styles.streakContainer}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Text style={styles.streakText}>3 days</Text>
-            <View style={styles.fireIcon}>
-              <Icon name="whatshot" size={24} color="#FFF" />
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* XP Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Earned Wellness XP</Text>
-          <Animated.View
-            style={[styles.xpContainer, { transform: [{ scale: pulseAnim }] }]}
-          >
-            <Text style={styles.xpText}>120</Text>
-            <Text style={styles.xpLabel}>XP</Text>
-          </Animated.View>
-          <View style={styles.progressBar}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Daily Check-In Streak</Text>
             <LinearGradient
-              colors={['#5A8EFF', '#3A5BFF']}
-              style={[styles.progressFill, { width: '75%' }]}
+              colors={['#FF9E44', '#FF7A00']}
+              style={styles.streakContainer}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-            />
-          </View>
-        </View>
-
-        {/* Badges Section */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Unlockable Badges</Text>
-          <View style={styles.badgeContainer}>
-            <LinearGradient
-              colors={['#8C6BFF', '#6341FF']}
-              style={styles.badge}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
             >
-              <Icon name="military-tech" size={32} color="#FFD700" />
-              <Text style={styles.badgeText}>7-Day Calm Streak</Text>
+              <Text style={styles.streakText}>3 days</Text>
+              <View style={styles.fireIcon}>
+                <Icon name="whatshot" size={24} color="#FFF" />
+              </View>
             </LinearGradient>
-            <View style={styles.badgePlaceholder} />
-            <View style={styles.badgePlaceholder} />
           </View>
-        </View>
 
-        {/* Goals Section */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Daily/Weekly Goals</Text>
-          <View style={styles.goalContainer}>
-            <LinearGradient
-              colors={['#4CD964', '#2DBE49']}
-              style={styles.goalBadge}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          {/* XP Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Earned Wellness XP</Text>
+            <Animated.View
+              style={[styles.xpContainer, { transform: [{ scale: pulseAnim }] }]}
             >
-              <Icon name="check" size={24} color="#FFF" />
-            </LinearGradient>
-            <View style={styles.goalTextContainer}>
-              <Text style={styles.goalTitle}>Goal for today</Text>
-              <Text style={styles.goalStatus}>1/1 Completed</Text>
+              <Text style={styles.xpText}>120</Text>
+              <Text style={styles.xpLabel}>XP</Text>
+            </Animated.View>
+            <View style={styles.progressBar}>
+              <LinearGradient
+                colors={['#5A8EFF', '#3A5BFF']}
+                style={[styles.progressFill, { width: '75%' }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
             </View>
           </View>
-        </View>
+
+          {/* Badges Section - Now horizontally scrollable */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Unlockable Badges</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.badgesContainer}
+            >
+              {badges.map((badge, index) => (
+                <LinearGradient
+                  key={index}
+                  colors={badge.unlocked ? badge.color : ['#CBD5E0', '#A0AEC0']}
+                  style={[
+                    styles.badge,
+                    !badge.unlocked && styles.lockedBadge
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Icon 
+                    name={getBadgeIcon(badge.unlocked)} 
+                    size={28} 
+                    color={getIconColor(badge.unlocked)} 
+                  />
+                  <Text style={[
+                    styles.badgeText,
+                    !badge.unlocked && styles.lockedBadgeText
+                  ]}>
+                    {badge.name}
+                  </Text>
+                </LinearGradient>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Goals Section */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Daily/Weekly Goals</Text>
+            <View style={styles.goalContainer}>
+              <LinearGradient
+                colors={['#4CD964', '#2DBE49']}
+                style={styles.goalBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Icon name="check" size={24} color="#FFF" />
+              </LinearGradient>
+              <View style={styles.goalTextContainer}>
+                <Text style={styles.goalTitle}>Goal for today</Text>
+                <Text style={styles.goalStatus}>1/1 Completed</Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -196,17 +250,21 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 5,
   },
-  badgeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  // Updated badge styles for horizontal scrolling
+  badgesContainer: {
+    paddingVertical: 5,
   },
   badge: {
-    width: 100,
+    width: screenWidth * 0.4, // 40% of screen width
     height: 120,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
+    marginRight: 12, // Space between badges
+  },
+  lockedBadge: {
+    opacity: 0.7,
   },
   badgeText: {
     color: 'white',
@@ -215,14 +273,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
   },
-  badgePlaceholder: {
-    width: 100,
-    height: 120,
-    backgroundColor: '#EDF2F7',
-    borderRadius: 15,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
+  lockedBadgeText: {
+    color: '#F7FAFC',
   },
   goalContainer: {
     flexDirection: 'row',

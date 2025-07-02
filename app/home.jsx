@@ -1,7 +1,9 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // ← Add this line
-import React, { useContext, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useContext, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -14,31 +16,165 @@ import {
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 
-
-
 const DashboardScreen = () => {
   const [menuVisible, setMenuVisible] = useState(false);
-  const { logout ,user } = useContext(AuthContext);
-  const router = useRouter(); // ← Add this line
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { logout, user, token } = useContext(AuthContext);
+  const router = useRouter();
 
+  // Mood options mapping
+  const moodOptions = [
+    { emoji: '😄', value: 'VERY_HAPPY', label: 'Very Happy' },
+    { emoji: '🙂', value: 'HAPPY', label: 'Happy' },
+    { emoji: '😐', value: 'NEUTRAL', label: 'Neutral' },
+    { emoji: '🙁', value: 'SAD', label: 'Sad' },
+    { emoji: '😢', value: 'VERY_SAD', label: 'Very Sad' }
+  ];
 
-  
+  // Fetch dashboard data from backend
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        const response = await fetch('http://localhost:8080/api/user/home', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+        
+        const data = await response.json();
+        setDashboardData(data);
+        
+        // Cache data in AsyncStorage
+        await AsyncStorage.setItem('dashboardData', JSON.stringify({
+          data,
+          timestamp: new Date().getTime()
+        }));
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        
+        // Try to load cached data
+        const cachedData = await AsyncStorage.getItem('dashboardData');
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          setDashboardData(parsedData.data);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
-const handleMenuPress = async (action) => {
-  setMenuVisible(false);
-  switch (action) {
-    case 'profile':
-      console.log('Navigate to Profile');
-      break;
-    case 'settings':
-      router.push('/settingscreen'); // Navigate to settings
-      break;
-    case 'logout':
-      await logout();             // Clear token
-      router.replace('/login');   // Navigate and clear history
-      break;
-  }
-};
+    fetchDashboardData();
+  }, []);
+
+  const handleMenuPress = async (action) => {
+    setMenuVisible(false);
+    switch (action) {
+      case 'profile':
+        console.log('Navigate to Profile');
+        break;
+      case 'settings':
+        router.push('/settingscreen');
+        break;
+      case 'logout':
+        await logout();
+        router.replace('/login');
+        break;
+    }
+  };
+
+  // Mood Card Component
+  const MoodCard = () => {
+    if (loading) {
+      return (
+        <View style={styles.moodCard}>
+          <ActivityIndicator size="small" color="#6C63FF" />
+          <Text style={styles.moodCardText}>Loading your mood...</Text>
+        </View>
+      );
+    }
+
+    if (!dashboardData?.todayMood) {
+      return (
+        <TouchableOpacity 
+          style={styles.moodCard}
+          onPress={() => router.push('/moodcheckinscreen')}
+        >
+          <Text style={styles.moodCardEmoji}>📝</Text>
+          <Text style={styles.moodCardText}>Log your mood today</Text>
+          <Feather name="chevron-right" size={20} color="#718096" />
+        </TouchableOpacity>
+      );
+    }
+
+    const moodData = moodOptions.find(option => 
+      option.value === dashboardData.todayMood
+    );
+
+    return (
+      <View style={styles.moodCard}>
+        <Text style={styles.moodCardEmoji}>{moodData?.emoji || '😐'}</Text>
+        <View style={styles.moodCardContent}>
+          <Text style={styles.moodCardLabel}>Today's Mood</Text>
+          <Text style={styles.moodCardValue}>{moodData?.label || 'Neutral'}</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.editMoodButton}
+          onPress={() => router.push('/moodcheckinscreen')}
+        >
+          <Feather name="edit" size={16} color="#6C63FF" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Stats Card Component
+  const StatsCard = () => {
+    if (loading) {
+      return (
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <ActivityIndicator size="small" color="#6C63FF" />
+          </View>
+          <View style={styles.statCard}>
+            <ActivityIndicator size="small" color="#6C63FF" />
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statTitle}>Streak</Text>
+          <View style={styles.streakCircle}>
+            <Text style={styles.streakText}>{dashboardData?.streak || 0}</Text>
+            <Text style={styles.streakLabel}>days</Text>
+          </View>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statTitle}>XP Progress</Text>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { 
+              width: `${Math.min(100, Math.floor((dashboardData?.xp || 0) / 3))}%` 
+            }]} />
+          </View>
+          <Text style={styles.progressText}>
+            {dashboardData?.xp || 0} XP collected
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <TouchableWithoutFeedback onPress={() => setMenuVisible(false)}>
@@ -82,6 +218,9 @@ const handleMenuPress = async (action) => {
             </TouchableOpacity>
           </View>
 
+          {/* Mood Card */}
+          <MoodCard />
+
           {/* Self-Care Suggestions */}
           <Text style={styles.sectionTitle}>Self-Care Suggestions</Text>
           <View style={styles.suggestionsContainer}>
@@ -91,30 +230,14 @@ const handleMenuPress = async (action) => {
           </View>
 
           {/* Stats Container */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statTitle}>Streak</Text>
-              <View style={styles.streakCircle}>
-                <Text style={styles.streakText}>7</Text>
-                <Text style={styles.streakLabel}>days</Text>
-              </View>
-            </View>
-
-            <View style={styles.statCard}>
-              <Text style={styles.statTitle}>XP Progress</Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '65%' }]} />
-              </View>
-              <Text style={styles.progressText}>65% complete</Text>
-            </View>
-          </View>
+          <StatsCard />
 
           {/* Action Buttons */}
           <View style={styles.actionsContainer}>
             <ActionButton text="Check-In" onPress={() => router.push('/moodcheckinscreen')} />
             <ActionButton text="Journal" onPress={() => router.push('/journalnotesscreen')}/>
             <ActionButton text="Talk to" onPress={() => router.push('/TopicSelectionScreen')} />
-             <ActionButton text="Relax" onPress={() => router.push('/DailyStreak')}/>
+            <ActionButton text="Relax" onPress={() => router.push('/DailyStreak')}/>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -137,7 +260,6 @@ const ActionButton = ({ text, onPress }) => (
   </TouchableOpacity>
 );
 
-
 // Styles
 const styles = StyleSheet.create({
   safeArea: {
@@ -153,7 +275,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   greeting: {
     fontSize: 28,
@@ -164,6 +286,47 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#718096',
     marginTop: 4,
+  },
+  moodCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  moodCardEmoji: {
+    fontSize: 36,
+    marginRight: 16,
+  },
+  moodCardContent: {
+    flex: 1,
+  },
+  moodCardLabel: {
+    fontSize: 16,
+    color: '#718096',
+    marginBottom: 4,
+  },
+  moodCardValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2d3748',
+  },
+  moodCardText: {
+    fontSize: 16,
+    color: '#4a5568',
+    marginLeft: 12,
+    flex: 1,
+  },
+  editMoodButton: {
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+    borderRadius: 12,
+    padding: 8,
   },
   sectionTitle: {
     fontSize: 22,

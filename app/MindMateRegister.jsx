@@ -1,6 +1,7 @@
-import { useRouter } from 'expo-router'; // Import useRouter for navigation
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -11,50 +12,110 @@ import {
   View
 } from 'react-native';
 
-const MindMateRegister = () => {
-  const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-const handleRegister = async () => {
-  const payload = {
-    email,
-    password,
-    userName: username,
-  };
-
-  try {
-    const response = await fetch('http://localhost:8080/auth/user/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Registration failed:', error);
-      alert('Registration failed: ' + error);
-      return;
-    }
-
-    const data = await response.json();
-    console.log('Registration successful:', data);
-    alert('Registration successful! Please log in.');
-    router.replace('/login'); // navigate to login page
-
-  } catch (error) {
-    console.error('Network error:', error);
-    alert('Network error: Unable to register.');
+// Configuration constants
+const API_CONFIG = {
+  BASE_URL: 'http://localhost:8080',
+  ENDPOINTS: {
+    REGISTER: '/auth/user/register'
   }
 };
 
+const MindMateRegister = () => {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    nickName: '',
+    name: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const validateForm = () => {
+    const { username, email, password, nickName, name } = formData;
+    
+    if (!username || !email || !password || !nickName || !name) {
+      Alert.alert('Error', 'All fields are required');
+      return false;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return false;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    
+    const payload = {
+      email: formData.email,
+      password: formData.password,
+      userName: formData.username,
+      nickName: formData.nickName,
+      name: formData.name
+    };
+
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REGISTER}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          responseData.message || 
+          responseData.error || 
+          'Registration failed. Please try again.'
+        );
+      }
+
+      Alert.alert('Success', 'Registration successful! Please log in.', [
+        { text: 'OK', onPress: () => router.replace('/login') }
+      ]);
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      
+      let errorMessage = 'An unexpected error occurred';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error instanceof TypeError) {
+        errorMessage = 'Network error: Please check your connection';
+      }
+
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLoginRedirect = () => {
-    // Navigate to login screen
-     router.replace('/login');
+    router.replace('/login');
   };
 
   return (
@@ -75,8 +136,8 @@ const handleRegister = async () => {
             style={styles.input}
             placeholder="Username"
             placeholderTextColor="#999"
-            value={username}
-            onChangeText={setUsername}
+            value={formData.username}
+            onChangeText={(text) => handleChange('username', text)}
             autoCapitalize="none"
           />
 
@@ -84,8 +145,8 @@ const handleRegister = async () => {
             style={styles.input}
             placeholder="Email"
             placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
+            value={formData.email}
+            onChangeText={(text) => handleChange('email', text)}
             autoCapitalize="none"
             keyboardType="email-address"
           />
@@ -94,16 +155,37 @@ const handleRegister = async () => {
             style={styles.input}
             placeholder="Password"
             placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
+            value={formData.password}
+            onChangeText={(text) => handleChange('password', text)}
             secureTextEntry
           />
 
+          <TextInput
+            style={styles.input}
+            placeholder="Nickname"
+            placeholderTextColor="#999"
+            value={formData.nickName}
+            onChangeText={(text) => handleChange('nickName', text)}
+            autoCapitalize="none"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            placeholderTextColor="#999"
+            value={formData.name}
+            onChangeText={(text) => handleChange('name', text)}
+            autoCapitalize="words"
+          />
+
           <TouchableOpacity
-            style={styles.registerButton}
+            style={[styles.registerButton, isLoading && styles.disabledButton]}
             onPress={handleRegister}
+            disabled={isLoading}
           >
-            <Text style={styles.buttonText}>Sign up</Text>
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Sign up'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -173,6 +255,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 6,
+  },
+  disabledButton: {
+    backgroundColor: '#a0aec0',
   },
   buttonText: {
     color: 'white',

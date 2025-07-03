@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,55 +13,70 @@ import {
   View,
 } from "react-native";
 
-import { useRouter } from "expo-router";
-
 const SelfCareScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [suggestion, setSuggestion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [fromDashboard, setFromDashboard] = useState(false);
+
+  useEffect(() => {
+    if (params?.suggestion) {
+      try {
+        const parsedSuggestion = JSON.parse(params.suggestion);
+        setSuggestion({ suggestions: [parsedSuggestion] });
+        setFromDashboard(true);
+        setLoading(false);
+      } catch (e) {
+        console.error("Error parsing suggestion:", e);
+        setError("Invalid suggestion data");
+        setLoading(false);
+      }
+    }
+  }, [params.suggestion]);
 
   const fetchSuggestion = async () => {
     try {
       setRefreshing(true);
+      setError(null);
 
-      const cachedData = await AsyncStorage.getItem("selfCareSuggestion");
-      if (cachedData) {
-        const parsedData = JSON.parse(cachedData);
-        if (new Date().getTime() - parsedData.timestamp < 24 * 60 * 60 * 1000) {
-          setSuggestion(parsedData.data);
-          setLoading(false);
-          setRefreshing(false);
-          return;
+      if (!fromDashboard) {
+        const cachedData = await AsyncStorage.getItem("selfCareSuggestion");
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          if (new Date().getTime() - parsedData.timestamp < 24 * 60 * 60 * 1000) {
+            setSuggestion(parsedData.data);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+          }
         }
       }
 
       const token = await AsyncStorage.getItem("token");
-
-      const response = await fetch(
-        "http://localhost:8080/api/user/ai-suggest",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch("http://localhost:8080/api/user/ai-suggest", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Suggestions:", data);
       setSuggestion(data);
 
-      await AsyncStorage.setItem(
-        "selfCareSuggestion",
-        JSON.stringify({ data, timestamp: new Date().getTime() })
-      );
+      if (!fromDashboard) {
+        await AsyncStorage.setItem(
+          "selfCareSuggestion",
+          JSON.stringify({ data, timestamp: new Date().getTime() })
+        );
+      }
     } catch (err) {
       setError("Failed to fetch suggestions. Please try again later.");
       console.error(err);
@@ -72,14 +87,17 @@ const SelfCareScreen = () => {
   };
 
   useEffect(() => {
-    fetchSuggestion();
+    if (!params?.suggestion) {
+      fetchSuggestion();
+    }
   }, []);
 
   const onRefresh = () => {
+    setFromDashboard(false);
     fetchSuggestion();
   };
 
-  if (loading) {
+  if (loading && !params?.suggestion) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -136,14 +154,17 @@ const SelfCareScreen = () => {
           />
         }
       >
-        <Text style={styles.header}>Self Care Recommendation</Text>
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>Self Care</Text>
+          <Text style={styles.header}>Recommendation</Text>
+        </View>
         <Text style={styles.subHeader}>Personalized just for you</Text>
 
-        {firstSuggestion && (
+        {firstSuggestion ? (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.emoji}>{firstSuggestion.emoji}</Text>
-              <View>
+              <View style={styles.cardTitleContainer}>
                 <Text style={styles.cardTitle}>{firstSuggestion.title}</Text>
                 <Text style={styles.cardCategory}>{firstSuggestion.type}</Text>
               </View>
@@ -167,6 +188,13 @@ const SelfCareScreen = () => {
               {firstSuggestion.reason}
             </Text>
           </View>
+        ) : (
+          <View style={styles.noDataContainer}>
+            <Ionicons name="heart-dislike" size={60} color="#6C63FF" />
+            <Text style={styles.noDataText}>
+              No self-care suggestions available
+            </Text>
+          </View>
         )}
 
         <View style={styles.tipContainer}>
@@ -177,10 +205,12 @@ const SelfCareScreen = () => {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-          <Ionicons name="refresh" size={20} color="#6C63FF" />
-          <Text style={styles.refreshButtonText}>Get New Suggestion</Text>
-        </TouchableOpacity>
+        {!fromDashboard && (
+          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+            <Ionicons name="refresh" size={20} color="#6C63FF" />
+            <Text style={styles.refreshButtonText}>Get New Suggestion</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -194,6 +224,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: 20,
     paddingBottom: 40,
+    paddingTop: 60,
   },
   loadingContainer: {
     flex: 1,
@@ -220,6 +251,20 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     lineHeight: 26,
   },
+  noDataContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 30,
+    backgroundColor: "white",
+    borderRadius: 20,
+    marginBottom: 25,
+  },
+  noDataText: {
+    fontSize: 18,
+    color: "#4A5568",
+    marginTop: 20,
+    textAlign: "center",
+  },
   retryButton: {
     backgroundColor: "#6C63FF",
     paddingVertical: 14,
@@ -232,12 +277,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 16,
   },
+  headerContainer: {
+    marginBottom: 8,
+    alignItems: "center",
+  },
   header: {
     fontSize: 28,
     fontWeight: "800",
     color: "#2D3748",
     textAlign: "center",
-    marginBottom: 8,
+    lineHeight: 34,
   },
   subHeader: {
     fontSize: 16,
@@ -268,11 +317,17 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginRight: 20,
   },
+  cardTitleContainer: {
+    flex: 1,
+    flexShrink: 1,
+  },
   cardTitle: {
     fontSize: 22,
     fontWeight: "700",
     color: "#2D3748",
     marginBottom: 5,
+    flexShrink: 1,
+    flexWrap: "wrap",
   },
   cardCategory: {
     fontSize: 16,
@@ -346,13 +401,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
   },
-backButton: {
-  position: "absolute",
-  top: 15,
-  left: 15,
-  zIndex: 10,
-},
-
+  backButton: {
+    position: "absolute",
+    top: 60,
+    left: 15,
+    zIndex: 10,
+    backgroundColor: "white",
+    borderRadius: 30,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 });
 
 export default SelfCareScreen;

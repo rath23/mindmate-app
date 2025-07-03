@@ -8,7 +8,6 @@ export default function Layout() {
       <Stack screenOptions={{headerShown: false}}>
         < Stack.Screen name = "index"   />
         <Stack.Screen name="login"  />
-        <Stack.Screen name="register"  />
         <Stack.Screen name="home"  />
         <Stack.Screen name="settingscreen"  />
         <Stack.Screen name="MindMateRegister"  />
@@ -22,6 +21,8 @@ export default function Layout() {
         />
         <Stack.Screen name="selfcarescreen" />
         <Stack.Screen name="moodanalysisscreen" />
+        <Stack.Screen name="ProfileScreen" />
+         <Stack.Screen name="EditProfileScreen"  />
       </Stack>
 
     </AuthProvider>

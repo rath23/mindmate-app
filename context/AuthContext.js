@@ -77,6 +77,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+   const updateUser = async (updatedUserData) => {
+    try {
+      // Update in state
+      setUser(prev => ({ ...prev, ...updatedUserData }));
+      
+      // Optional: Update in AsyncStorage
+      const currentUser = JSON.parse(await AsyncStorage.getItem('user')) || {};
+      await AsyncStorage.setItem('user', JSON.stringify({
+        ...currentUser,
+        ...updatedUserData
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      return false;
+    }
+  };
+
   // 🔁 Simulate token refresh
  const refreshToken = async () => {
   try {
@@ -105,7 +124,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout, token, user }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, token, user , updateUser }}>
       {children}
     </AuthContext.Provider>
   );

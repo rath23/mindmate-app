@@ -1,5 +1,8 @@
+import { useRouter } from "expo-router";
 import React, { useContext, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -7,60 +10,102 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { AuthContext } from "../context/AuthContext";
 
-import { useRouter } from "expo-router";
+// Configuration constants
+const API_CONFIG = {
+  BASE_URL: 'http://localhost:8080',
+  ENDPOINTS: {
+    LOGIN: '/auth/user/login'
+  }
+};
 
 const MindMateLogin = () => {
   const router = useRouter();
-
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    username: "",
+    password: ""
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useContext(AuthContext);
 
+  const handleChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
+  const validateForm = () => {
+    const { username, password } = formData;
+    
+    if (!username || !password) {
+      Alert.alert('Error', 'Both username and password are required');
+      return false;
+    }
+
+    return true;
+  };
 
   const handleLogin = async () => {
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    
     try {
-      const response = await fetch("http://localhost:8080/auth/user/login", {
-        // replace with your local IP
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          password: password,
-          userName: username,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Login failed: ${response.status}`);
-      }
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            password: formData.password,
+            userName: formData.username,
+          }),
+        }
+      );
 
       const data = await response.json();
 
-      console.log("Login successful! Response:", data);
+      if (!response.ok) {
+        throw new Error(
+          data.message || 
+          data.error || 
+          'Login failed. Please check your credentials.'
+        );
+      }
 
-      const token = data.token; // ✅ Extract token from backend response
-      login(token);
-      router.replace("/home"); // ✅ go to home page
-      // ✅ Pass token to context
+      console.log("Login successful! Response:", data);
+      login(data.token);
+      router.replace("/home");
+
     } catch (error) {
       console.error("Login error:", error);
+      Alert.alert(
+        'Login Error', 
+        error.message || 'An error occurred during login. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleAnonymousLogin = () => {
-    // Anonymous login logic
-    console.log("Continuing anonymously");
+    Alert.alert(
+      'Anonymous Login',
+      'You can explore the app with limited features',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', onPress: () => router.replace("/home") }
+      ]
+    );
   };
 
   const handleSignUp = () => {
-    
-    console.log("Navigate to sign up");
     router.push('/MindMateRegister');
   };
 
@@ -73,32 +118,39 @@ const MindMateLogin = () => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>MindMate</Text>
-          <Text style={styles.subtitle}>login</Text>
+          <Text style={styles.subtitle}>Login</Text>
         </View>
 
         {/* Form */}
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            placeholder="username"
+            placeholder="Username"
             placeholderTextColor="#999"
-            value={username}
-            onChangeText={setUsername}
+            value={formData.username}
+            onChangeText={(text) => handleChange('username', text)}
             autoCapitalize="none"
-            keyboardType="email-address"
           />
 
           <TextInput
             style={styles.input}
             placeholder="Password"
             placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
+            value={formData.password}
+            onChangeText={(text) => handleChange('password', text)}
             secureTextEntry
           />
 
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Log in</Text>
+          <TouchableOpacity
+            style={[styles.loginButton, isLoading && styles.disabledButton]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>Log in</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -174,6 +226,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 6,
+  },
+  disabledButton: {
+    backgroundColor: "#a0aec0",
   },
   buttonText: {
     color: "white",

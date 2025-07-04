@@ -5,6 +5,7 @@ import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   Platform,
@@ -19,9 +20,16 @@ import {
   View,
 } from "react-native";
 
-const BASE_URL = "http://localhost:8080";
+// API Configuration
+const API_CONFIG = {
+  BASE_URL: "http://localhost:8080/api",
+  ENDPOINTS: {
+    JOURNAL: "/journal",
+  },
+  TIMEOUT: 10000, // 10 seconds
+};
 
-const journalnotesscreen = () => {
+const JournalNotesScreen = () => {
   const navigation = useNavigation();
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
@@ -29,58 +37,82 @@ const journalnotesscreen = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [promptError, setPromptError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const noteInputRef = useRef(null);
 
   const getAuthToken = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
       return token;
     } catch (error) {
-      console.error("Error getting token:", error);
-      return null;
+      console.error("Token retrieval error:", error);
+      throw error;
     }
   };
 
-  const handleSave = async () => {
-    if (!prompt.trim() || !note.trim()) {
-      setPromptError(!prompt.trim());
-      Alert.alert("Validation", "Please fill in both the heading and body");
-      return;
+  const validateForm = () => {
+    if (!prompt.trim()) {
+      setPromptError(true);
+      return false;
     }
+    if (!note.trim()) {
+      Alert.alert("Validation", "Please add some content to your journal entry");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
 
     setIsSaving(true);
     try {
       const token = await getAuthToken();
-      if (!token) {
-        Alert.alert("Authentication Error", "Please login again");
-        navigation.navigate("Login");
-        return;
-      }
-
       const payload = { heading: prompt, body: note };
 
-      await axios.post(`${BASE_URL}/api/journal`, payload, {
+      const response = await axios({
+        method: "post",
+        url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}`,
+        data: payload,
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        timeout: API_CONFIG.TIMEOUT,
       });
 
-      Alert.alert("Success", "Journal saved successfully!");
-      router.replace("/PastEntriesScreen")
-      setIsEditing(false);
+      if (response.status === 201) {
+        Alert.alert("Success", "Journal saved successfully!", [
+          {
+            text: "OK",
+            onPress: () => {
+              router.replace("/PastEntriesScreen");
+              setIsEditing(false);
+            },
+          },
+        ]);
+      }
     } catch (error) {
       console.error("Save error:", error);
-      let errorMessage = "Failed to save journal";
+      let errorMessage = "Failed to save journal entry";
+      
       if (error.response) {
         if (error.response.status === 401) {
           errorMessage = "Session expired. Please login again.";
-          await AsyncStorage.removeItem("userToken");
+          await AsyncStorage.removeItem("token");
           navigation.navigate("Login");
         } else if (error.response.data?.message) {
           errorMessage = error.response.data.message;
         }
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again.";
       }
+
       Alert.alert("Error", errorMessage);
     } finally {
       setIsSaving(false);
@@ -88,162 +120,182 @@ const journalnotesscreen = () => {
   };
 
   const handleDelete = () => {
-    if (!prompt.trim()) {
-      setPromptError(true);
-      Alert.alert("Validation", "Please enter a prompt first.");
-      return;
-    }
-
-    Alert.alert("Confirm Delete", "Are you sure you want to delete this entry?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        onPress: () => {
-          setNote("");
-          setPrompt("");
-          setIsEditing(false);
+    Alert.alert(
+      "Clear Entry",
+      "Are you sure you want to clear this journal entry?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
         },
-      },
-    ]);
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: () => {
+            setNote("");
+            setPrompt("");
+            setIsEditing(false);
+          },
+        },
+      ]
+    );
   };
 
   const handleEdit = () => {
     if (!prompt.trim()) {
       setPromptError(true);
-      Alert.alert("Validation", "Please enter a prompt before editing.");
+      Alert.alert("Validation", "Please enter a title before editing.");
       return;
     }
     setIsEditing(true);
   };
 
+  const handlePastEntriesNavigation = () => {
+    router.push("/PastEntriesScreen");
+  };
 
-  const handlePastEntriesScreenNavigation = () => {
-    navigation.navigate("PastEntriesScreen");
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar backgroundColor="#f8f9fe" barStyle="dark-content" />
-      <ScrollView 
-        contentContainerStyle={styles.container} 
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header with centered title */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Feather name="chevron-left" size={28} color="#4c6ef5" />
-            </TouchableOpacity>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerText}>Journal Notes</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Prompt input */}
-        <TextInput
-          style={[styles.promptInput, promptError && styles.promptInputError]}
-          value={prompt}
-          onChangeText={(text) => {
-            setPrompt(text);
-            if (text.trim()) setPromptError(false);
-          }}
-          placeholder="What's on your mind today?"
-          placeholderTextColor="#a0aec0"
-          multiline
-          blurOnSubmit={false}
-          returnKeyType="next"
-          onKeyPress={({ nativeEvent }) => {
-            if (nativeEvent.key === "Enter" && prompt.trim()) {
-              Keyboard.dismiss();
-              noteInputRef.current?.focus();
-              setIsEditing(true);
-            }
-          }}
-        />
-
-        <View style={styles.divider} />
-
-        {/* Note input - larger journal area */}
-        <TouchableWithoutFeedback
-          onPressIn={() => {
-            if (!prompt.trim()) {
-              setPromptError(true);
-              Alert.alert("Validation", "Please enter a prompt first.");
-            } else {
-              noteInputRef.current?.focus();
-            }
-          }}
+      <TouchableWithoutFeedback onPress={dismissKeyboard}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.entryContainer} pointerEvents="box-none">
-            <TextInput
-              ref={noteInputRef}
-              style={styles.journalInput}
-              value={note}
-              onChangeText={setNote}
-              placeholder="Pour out your thoughts here..."
-              placeholderTextColor="#a0aec0"
-              multiline
-              editable={isEditing}
-              textAlignVertical="top"
-            />
-          </View>
-        </TouchableWithoutFeedback>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          {isEditing ? (
-            <>
-              <TouchableOpacity 
-                style={styles.cancelButton} 
-                onPress={() => setIsEditing(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[
-                  styles.saveButton, 
-                  isSaving && styles.disabledButton
-                ]} 
-                onPress={handleSave}
+          {/* Header */}
+          <View style={styles.headerContainer}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
                 disabled={isSaving}
               >
-                <Text style={styles.saveButtonText}>
-                  {isSaving ? "Saving..." : "Save Entry"}
-                </Text>
+                <Feather name="chevron-left" size={28} color="#4c6ef5" />
               </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity 
-                style={styles.deleteButton} 
-                onPress={handleDelete}
-              >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.editButton} 
-                onPress={handleEdit}
-              >
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerText}>Journal Notes</Text>
+              </View>
+            </View>
+          </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.pastEntriesButton} 
-            onPress={handlePastEntriesScreenNavigation}
+          {/* Prompt input */}
+          <TextInput
+            style={[styles.promptInput, promptError && styles.promptInputError]}
+            value={prompt}
+            onChangeText={(text) => {
+              setPrompt(text);
+              if (text.trim()) setPromptError(false);
+            }}
+            placeholder="What's on your mind today?"
+            placeholderTextColor="#a0aec0"
+            multiline
+            blurOnSubmit={false}
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              if (prompt.trim()) {
+                noteInputRef.current?.focus();
+                setIsEditing(true);
+              }
+            }}
+          />
+
+          <View style={styles.divider} />
+
+          {/* Note input */}
+          <TouchableWithoutFeedback
+            onPress={() => {
+              if (!prompt.trim()) {
+                setPromptError(true);
+                Alert.alert("Validation", "Please enter a title first.");
+              } else {
+                noteInputRef.current?.focus();
+                setIsEditing(true);
+              }
+            }}
           >
-            <Text style={styles.pastEntriesText}>View Past Entries →</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <View style={styles.entryContainer}>
+              <TextInput
+                ref={noteInputRef}
+                style={styles.journalInput}
+                value={note}
+                onChangeText={setNote}
+                placeholder="Pour out your thoughts here..."
+                placeholderTextColor="#a0aec0"
+                multiline
+                editable={isEditing}
+                textAlignVertical="top"
+              />
+            </View>
+          </TouchableWithoutFeedback>
+
+          {/* Action Buttons */}
+          <View style={styles.actionsContainer}>
+            {isEditing ? (
+              <>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setIsEditing(false);
+                    dismissKeyboard();
+                  }}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    (isSaving || !prompt.trim() || !note.trim()) &&
+                      styles.disabledButton,
+                  ]}
+                  onPress={handleSave}
+                  disabled={isSaving || !prompt.trim() || !note.trim()}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save Entry</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={handleDelete}
+                  disabled={!prompt && !note}
+                >
+                  <Text style={styles.deleteButtonText}>Clear</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.editButton,
+                    (!prompt.trim() || !note.trim()) && styles.disabledButton,
+                  ]}
+                  onPress={handleEdit}
+                  disabled={!prompt.trim() || !note.trim()}
+                >
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.pastEntriesButton}
+              onPress={handlePastEntriesNavigation}
+            >
+              <Text style={styles.pastEntriesText}>View Past Entries →</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 };
@@ -267,23 +319,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 15,
-    position: "relative", // Added for proper centering
+    position: "relative",
   },
   backButton: {
     padding: 8,
-    position: "absolute", // Position absolutely
-    left: 0, // Position on left
-    zIndex: 1, // Ensure it's above other elements
+    position: "absolute",
+    left: 0,
+    zIndex: 1,
   },
   headerTextContainer: {
-    flex: 1, // Take up all available space
-    alignItems: "center", // Center horizontally
+    flex: 1,
+    alignItems: "center",
   },
   headerText: {
     fontSize: 28,
     fontWeight: "800",
     color: "#4c6ef5",
-    textAlign: "center", // Center text
+    textAlign: "center",
   },
   promptInput: {
     fontSize: 22,
@@ -406,8 +458,8 @@ const styles = StyleSheet.create({
     color: "#4c6ef5",
   },
   disabledButton: {
-    opacity: 0.7,
-  }
+    opacity: 0.6,
+  },
 });
 
-export default journalnotesscreen;
+export default JournalNotesScreen;

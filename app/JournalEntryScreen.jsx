@@ -18,7 +18,14 @@ import {
   View,
 } from "react-native";
 
-const BASE_URL = "http://localhost:8080";
+// API Configuration
+const API_CONFIG = {
+  BASE_URL: "http://localhost:8080/api",
+  ENDPOINTS: {
+    JOURNAL: "/journal",
+  },
+  TIMEOUT: 10000, // 10 seconds
+};
 
 const JournalEntryScreen = () => {
   const router = useRouter();
@@ -31,95 +38,160 @@ const JournalEntryScreen = () => {
   const [editedContent, setEditedContent] = useState(body || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
-  // Get JWT token
+  // Get JWT token with error handling
   const getAuthToken = async () => {
     try {
-      return await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+      return token;
     } catch (error) {
-      console.error("Error getting token:", error);
-      return null;
+      console.error("Token retrieval error:", error);
+      throw error;
     }
   };
 
-  
-
-  // Handle save/update
+  // Handle save/update with validation
   const handleSave = async () => {
-    if (!editedHeading.trim() || !editedContent.trim()) {
-      Alert.alert("Validation", "Both heading and content are required");
-      return;
-    }
-
-    setIsSaving(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        Alert.alert("Authentication Error", "Please login again");
+      // Validate inputs
+      if (!editedHeading.trim()) {
+        setValidationError("Heading is required");
         return;
       }
+      if (!editedContent.trim()) {
+        setValidationError("Content is required");
+        return;
+      }
+      setValidationError("");
+
+      setIsSaving(true);
+      const token = await getAuthToken();
 
       const payload = {
         heading: editedHeading,
         body: editedContent,
       };
 
-      // Update existing entry
-      await axios.put(`${BASE_URL}/api/journal/${id}`, payload, {
+      const response = await axios({
+        method: "put",
+        url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}/${id}`,
+        data: payload,
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        timeout: API_CONFIG.TIMEOUT,
       });
 
-      Alert.alert("Success", "Journal updated successfully!");
-      // router.back()
-      // setIsEditing(false);
-      setTimeout(() => {
-        router.back();
-      }, 100);
+      Alert.alert("Success", "Journal updated successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace({
+              pathname: "/journal/[id]",
+              params: {
+                id,
+                heading: editedHeading,
+                body: editedContent,
+                createdAt,
+                editMode: "false",
+              },
+            });
+            setIsEditing(false);
+          },
+        },
+      ]);
     } catch (error) {
       console.error("Update error:", error);
-      Alert.alert("Error", "Failed to update journal");
+      let errorMessage = "Failed to update journal";
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again.";
+      }
+
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Handle delete
+  // Handle delete with confirmation
   const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        Alert.alert("Authentication Error", "Please login again");
-        return;
-      }
-
-      await axios.delete(`${BASE_URL}/api/journal/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+    Alert.alert(
+      "Confirm Delete",
+      "Are you sure you want to delete this journal entry?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
         },
-      });
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              const token = await getAuthToken();
 
-      Alert.alert("Deleted", "Entry deleted successfully");
-      router.back();
-    } catch (error) {
-      console.error("Delete error:", error);
-      Alert.alert("Error", "Failed to delete the entry");
-    } finally {
-      setIsDeleting(false);
-    }
+              await axios({
+                method: "delete",
+                url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}/${id}`,
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+                timeout: API_CONFIG.TIMEOUT,
+              });
+
+              Alert.alert("Success", "Entry deleted successfully", [
+                {
+                  text: "OK",
+                  onPress: () => router.back(),
+                },
+              ]);
+            } catch (error) {
+              console.error("Delete error:", error);
+              let errorMessage = "Failed to delete the entry";
+              
+              if (error.response) {
+                errorMessage = error.response.data?.message || errorMessage;
+              } else if (error.request) {
+                errorMessage = "Network error. Please check your connection.";
+              }
+
+              Alert.alert("Error", errorMessage);
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
-  // Format date
+  // Format date with fallback
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    try {
+      if (!dateString) return "No date";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error("Date formatting error:", error);
+      return "Invalid date";
+    }
   };
 
   return (
@@ -128,17 +200,24 @@ const JournalEntryScreen = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
         >
-          <ScrollView contentContainerStyle={styles.scrollContainer}>
-            {/* Header with back button */}
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => router.back()}
+                disabled={isSaving || isDeleting}
               >
                 <Feather name="arrow-left" size={24} color="#6C63FF" />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Edit Journal</Text>
+              <Text style={styles.headerTitle}>
+                {isEditing ? "Edit Journal" : "Journal Entry"}
+              </Text>
               <View style={{ width: 40 }} />
             </View>
 
@@ -150,16 +229,25 @@ const JournalEntryScreen = () => {
                 <Text style={styles.date}>{formatDate(createdAt)}</Text>
               </View>
 
+              {/* Validation Error */}
+              {validationError ? (
+                <Text style={styles.errorText}>{validationError}</Text>
+              ) : null}
+
               {/* Heading */}
               <View style={styles.quoteContainer}>
-                {/* <Feather name="star" size={18} color="#FFD166" style={styles.quoteIcon} /> */}
                 {isEditing ? (
                   <TextInput
                     style={styles.quoteInput}
                     value={editedHeading}
-                    onChangeText={setEditedHeading}
+                    onChangeText={(text) => {
+                      setEditedHeading(text);
+                      if (validationError) setValidationError("");
+                    }}
                     multiline
                     placeholder="Enter your heading..."
+                    placeholderTextColor="#A0AEC0"
+                    maxLength={200}
                   />
                 ) : (
                   <Text style={styles.quote}>{editedHeading}</Text>
@@ -172,9 +260,14 @@ const JournalEntryScreen = () => {
                   <TextInput
                     style={styles.contentInput}
                     value={editedContent}
-                    onChangeText={setEditedContent}
+                    onChangeText={(text) => {
+                      setEditedContent(text);
+                      if (validationError) setValidationError("");
+                    }}
                     multiline
                     placeholder="Write your journal entry..."
+                    placeholderTextColor="#A0AEC0"
+                    textAlignVertical="top"
                   />
                 ) : (
                   <Text style={styles.bodyText}>{editedContent}</Text>
@@ -202,7 +295,12 @@ const JournalEntryScreen = () => {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.button, styles.cancelButton]}
-                    onPress={() => setIsEditing(false)}
+                    onPress={() => {
+                      setIsEditing(false);
+                      setValidationError("");
+                      setEditedHeading(heading || "");
+                      setEditedContent(body || "");
+                    }}
                     disabled={isSaving}
                   >
                     <Feather name="x" size={18} color="#fff" />
@@ -214,6 +312,7 @@ const JournalEntryScreen = () => {
                   <TouchableOpacity
                     style={[styles.button, styles.editButton]}
                     onPress={() => setIsEditing(true)}
+                    disabled={isDeleting}
                   >
                     <Feather name="edit-3" size={18} color="#fff" />
                     <Text style={styles.buttonText}>Edit Entry</Text>
@@ -296,6 +395,12 @@ const styles = StyleSheet.create({
     color: "#6C63FF",
     marginLeft: 10,
   },
+  errorText: {
+    color: "#EF476F",
+    fontSize: 14,
+    marginBottom: 15,
+    textAlign: "center",
+  },
   quoteContainer: {
     backgroundColor: "rgba(255, 209, 102, 0.08)",
     borderLeftWidth: 4,
@@ -304,19 +409,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 30,
     borderRadius: 12,
-  },
-  quoteIcon: {
-    position: "absolute",
-    top: -10,
-    left: -10,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   quote: {
     fontSize: 18,
@@ -334,6 +426,8 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: "rgba(255,255,255,0.5)",
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   contentContainer: {
     marginBottom: 30,
@@ -352,38 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9f9f9",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#eee",
-  },
-  moodContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 15,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  moodLabel: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#4A5568",
-    marginRight: 15,
-  },
-  moodIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(108, 99, 255, 0.1)",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  moodEmoji: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  moodText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#6C63FF",
+    borderColor: "#E2E8F0",
   },
   buttonContainer: {
     flexDirection: "row",

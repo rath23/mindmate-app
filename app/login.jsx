@@ -49,50 +49,49 @@ const MindMateLogin = () => {
     return true;
   };
 
-  const handleLogin = async () => {
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    
-    try {
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            password: formData.password,
-            userName: formData.username,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || 
-          data.error || 
-          'Login failed. Please check your credentials.'
-        );
+const handleLogin = async () => {
+  if (!validateForm()) return;
+  
+  setIsLoading(true);
+  
+  try {
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: formData.password,
+          userName: formData.username,
+        }),
       }
+    );
 
-      console.log("Login successful! Response:", data);
-      login(data.token);
-      router.replace("/home");
+    const data = await response.json();
 
-    } catch (error) {
-      console.error("Login error:", error);
-      Alert.alert(
-        'Login Error', 
-        error.message || 'An error occurred during login. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      // Handle 401 (wrong credentials) differently from other errors
+      if (response.status === 401) {
+        throw new Error(data.error || "Invalid username or password");
+      }
+      throw new Error(data.error || `Login failed (status ${response.status})`);
     }
-  };
+
+    login(data.token);
+    router.replace("/home");
+
+  } catch (error) {
+    console.error("Login error:", error);
+    Alert.alert(
+      'Login Failed', 
+      error.message || 'Invalid username or password'
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleAnonymousLogin = () => {
     Alert.alert(

@@ -16,6 +16,16 @@ import {
 import Toast from "react-native-toast-message";
 import Icon from "react-native-vector-icons/MaterialIcons";
 
+// Configuration constants
+const API_CONFIG = {
+  BASE_URL: "http://localhost:8080/api", // Store in variable for easy modification
+  ENDPOINTS: {
+    PROGRESS: "/user/progress",
+    TASK_COMPLETED: "/user/task-completed",
+  },
+  TIMEOUT: 10000, // 10 seconds timeout
+};
+
 const { width: screenWidth } = Dimensions.get("window");
 
 const DailyStreak = () => {
@@ -24,35 +34,75 @@ const DailyStreak = () => {
   const [streak, setStreak] = useState(0);
   const [badges, setBadges] = useState([]);
   const [dailyTasks, setDailyTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const router = useRouter();
 
+  const fetchWithTimeout = async (url, options = {}, timeout = API_CONFIG.TIMEOUT) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  };
+
   const fetchProgress = async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
       const token = await AsyncStorage.getItem("token");
-      const response = await fetch("http://localhost:8080/api/user/progress", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch progress");
+      if (!token) {
+        throw new Error("Authentication token not found");
       }
 
-      const data = await response.json();
-      setXp(data.xp);
-      setStreak(data.streak);
-      setDailyTasks(data.dailyTasks);
+      const data = await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PROGRESS}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setXp(data.xp || 0);
+      setStreak(data.streak || 0);
+      setDailyTasks(data.dailyTasks || []);
+      
       setBadges(
-        data.unlockedBadges.map((badge) => ({
-          name: badge.name,
-          desc: badge.description,
-          color: [badge.colorStart, badge.colorEnd],
-          unlocked: badge.unlocked,
+        (data.unlockedBadges || []).map((badge) => ({
+          name: badge.name || "Unknown Badge",
+          desc: badge.description || "",
+          color: [badge.colorStart || "#CBD5E0", badge.colorEnd || "#A0AEC0"],
+          unlocked: badge.unlocked || false,
         }))
       );
     } catch (error) {
       console.error("Error fetching progress:", error);
+      setError(error.message || "Failed to fetch progress data");
+      
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.message || "Could not load your progress data",
+        position: "bottom",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -80,10 +130,24 @@ const DailyStreak = () => {
   }, []);
 
   const handleTaskComplete = async (taskId) => {
+    if (!taskId) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Invalid task ID",
+        position: "bottom",
+      });
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:8080/api/user/task-completed/${taskId}`,
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+
+      await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TASK_COMPLETED}/${taskId}`,
         {
           method: "POST",
           headers: {
@@ -92,10 +156,6 @@ const DailyStreak = () => {
           },
         }
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to mark task as complete");
-      }
 
       await fetchProgress();
 
@@ -107,10 +167,18 @@ const DailyStreak = () => {
       });
     } catch (error) {
       console.error("Error completing task:", error);
+      
+      let errorMessage = "Failed to complete task";
+      if (error.name === "AbortError") {
+        errorMessage = "Request timed out. Please try again.";
+      } else if (error.message.includes("Network request failed")) {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
       Toast.show({
         type: "error",
         text1: "Oops!",
-        text2: "Something went wrong.",
+        text2: errorMessage,
         position: "bottom",
       });
     }
@@ -126,10 +194,38 @@ const DailyStreak = () => {
 
   const actionableTasks = dailyTasks.filter(
     (task) =>
+      task?.taskText &&
       !task.taskText
         .toLowerCase()
         .includes("here are 3 daily mental wellness tasks")
   );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading your progress...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Icon name="error-outline" size={48} color="#E53E3E" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchProgress}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -184,57 +280,65 @@ const DailyStreak = () => {
           {/* Badges */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Unlockable Badges</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.badgesContainer}
-            >
-              {badges.map((badge, index) => (
-                <LinearGradient
-                  key={index}
-                  colors={badge.unlocked ? badge.color : ["#CBD5E0", "#A0AEC0"]}
-                  style={[styles.badge, !badge.unlocked && styles.lockedBadge]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Icon
-                    name={getBadgeIcon(badge.unlocked)}
-                    size={28}
-                    color={getIconColor(badge.unlocked)}
-                  />
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      !badge.unlocked && styles.lockedBadgeText,
-                    ]}
+            {badges.length === 0 ? (
+              <Text style={styles.emptyMessage}>No badges available</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.badgesContainer}
+              >
+                {badges.map((badge, index) => (
+                  <LinearGradient
+                    key={index}
+                    colors={badge.unlocked ? badge.color : ["#CBD5E0", "#A0AEC0"]}
+                    style={[styles.badge, !badge.unlocked && styles.lockedBadge]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                   >
-                    {badge.name}
-                  </Text>
-                </LinearGradient>
-              ))}
-            </ScrollView>
+                    <Icon
+                      name={getBadgeIcon(badge.unlocked)}
+                      size={28}
+                      color={getIconColor(badge.unlocked)}
+                    />
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        !badge.unlocked && styles.lockedBadgeText,
+                      ]}
+                    >
+                      {badge.name}
+                    </Text>
+                  </LinearGradient>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
           {/* Daily Tasks (Last Section) */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Today's Tasks</Text>
-            {actionableTasks.map((task) => (
-              <View key={task.id} style={styles.taskItem}>
-                <Text style={styles.taskText}>{task.taskText}</Text>
-                {task.completed ? (
-                  <View style={styles.completedBadge}>
-                    <Icon name="check" size={20} color="#FFF" />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.doneButton}
-                    onPress={() => handleTaskComplete(task.id)}
-                  >
-                    <Text style={styles.doneButtonText}>Done</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
+            {actionableTasks.length === 0 ? (
+              <Text style={styles.emptyMessage}>No tasks available today</Text>
+            ) : (
+              actionableTasks.map((task) => (
+                <View key={task.id} style={styles.taskItem}>
+                  <Text style={styles.taskText}>{task.taskText}</Text>
+                  {task.completed ? (
+                    <View style={styles.completedBadge}>
+                      <Icon name="check" size={20} color="#FFF" />
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.doneButton}
+                      onPress={() => handleTaskComplete(task.id)}
+                    >
+                      <Text style={styles.doneButtonText}>Done</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))
+            )}
           </View>
         </ScrollView>
       </LinearGradient>
@@ -246,6 +350,38 @@ const DailyStreak = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1, padding: 20 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#E53E3E",
+    textAlign: "center",
+    marginVertical: 20,
+  },
+  retryButton: {
+    backgroundColor: "#5A8EFF",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+  },
+  retryButtonText: {
+    color: "white",
+    fontWeight: "600",
+  },
+  emptyMessage: {
+    textAlign: "center",
+    color: "#718096",
+    marginVertical: 10,
+  },
   header: { marginBottom: 25, alignItems: "center" },
   headerRow: {
     flexDirection: "row",

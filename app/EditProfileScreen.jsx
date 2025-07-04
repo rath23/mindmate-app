@@ -1,27 +1,32 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useContext, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { AuthContext } from "../context/AuthContext";
 
-
-const API_URL = "http://localhost:8080/api/user/update-profile";
+// API Configuration
+const API_CONFIG = {
+  BASE_URL: "http://localhost:8080/api",
+  ENDPOINTS: {
+    UPDATE_PROFILE: "/user/update-profile",
+  },
+  TIMEOUT: 10000, // 10 seconds
+};
 
 const EditProfileScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
- const { updateUser, token } = useContext(AuthContext);
+  const { updateUser, token } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({
     email: params.email || "",
@@ -31,45 +36,101 @@ const EditProfileScreen = () => {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState({
+    email: "",
+    userName: "",
+    name: "",
+  });
+
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = {
+      email: "",
+      userName: "",
+      name: "",
+    };
+
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Email is invalid";
+      isValid = false;
+    }
+
+    if (!formData.userName) {
+      newErrors.userName = "Username is required";
+      isValid = false;
+    } else if (formData.userName.length < 3) {
+      newErrors.userName = "Username must be at least 3 characters";
+      isValid = false;
+    }
+
+    if (!formData.name) {
+      newErrors.name = "Full name is required";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
 
   const handleSave = async () => {
-    console.log(token);
-    if (!formData.email || !formData.userName || !formData.name) {
-      Alert.alert("Error", "Please fill in all required fields");
+    if (!validateForm()) {
       return;
     }
 
     setIsSaving(true);
     
     try {
-    
-      
       if (!token) {
-        throw new Error("No authentication token found");
+        throw new Error("Authentication required. Please login again.");
       }
 
-      const response = await axios.put(API_URL, formData, {
+      const response = await axios({
+        method: 'put',
+        url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UPDATE_PROFILE}`,
+        data: formData,
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: API_CONFIG.TIMEOUT
       });
 
       if (response.status === 200) {
-        Alert.alert("Success", "Profile updated successfully");
         const success = await updateUser({
           email: formData.email,
           username: formData.userName,
           name: formData.name,
           nickname: formData.nickName
         });
-        router.back();
+
+        if (success) {
+          Alert.alert(
+            "Success", 
+            "Profile updated successfully",
+            [{ text: "OK", onPress: () => router.back() }]
+          );
+        } else {
+          throw new Error("Failed to update local user data");
+        }
       } else {
-        throw new Error(response.data.message || "Failed to update profile");
+        throw new Error(response.data?.message || "Failed to update profile");
       }
     } catch (error) {
       console.error("Update error:", error);
-      Alert.alert("Error", error.message || "Failed to update profile");
+      
+      let errorMessage = "Failed to update profile";
+      if (error.response) {
+        // Server responded with error status (4xx, 5xx)
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -82,6 +143,7 @@ const EditProfileScreen = () => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
+          disabled={isSaving}
         >
           <Feather name="chevron-left" style={styles.backButtonText} />
         </TouchableOpacity>
@@ -91,9 +153,11 @@ const EditProfileScreen = () => {
           onPress={handleSave}
           disabled={isSaving}
         >
-          <Text style={styles.saveButtonText}>
-            {isSaving ? "Saving..." : "Save"}
-          </Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -103,13 +167,19 @@ const EditProfileScreen = () => {
           <View style={styles.infoItem}>
             <Text style={styles.label}>Email*</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.email && styles.inputError]}
               value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
+              onChangeText={(text) => {
+                setFormData({ ...formData, email: text });
+                setErrors({ ...errors, email: "" });
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
-              editable={false} // Often email isn't editable
+              editable={false}
             />
+            {errors.email ? (
+              <Text style={styles.errorText}>{errors.email}</Text>
+            ) : null}
           </View>
 
           <View style={styles.divider} />
@@ -117,13 +187,17 @@ const EditProfileScreen = () => {
           <View style={styles.infoItem}>
             <Text style={styles.label}>Username*</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.userName && styles.inputError]}
               value={formData.userName}
-              onChangeText={(text) =>
-                setFormData({ ...formData, userName: text })
-              }
+              onChangeText={(text) => {
+                setFormData({ ...formData, userName: text });
+                setErrors({ ...errors, userName: "" });
+              }}
               autoCapitalize="none"
             />
+            {errors.userName ? (
+              <Text style={styles.errorText}>{errors.userName}</Text>
+            ) : null}
           </View>
 
           <View style={styles.divider} />
@@ -131,12 +205,16 @@ const EditProfileScreen = () => {
           <View style={styles.infoItem}>
             <Text style={styles.label}>Full Name*</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.name && styles.inputError]}
               value={formData.name}
-              onChangeText={(text) =>
-                setFormData({ ...formData, name: text })
-              }
+              onChangeText={(text) => {
+                setFormData({ ...formData, name: text });
+                setErrors({ ...errors, name: "" });
+              }}
             />
+            {errors.name ? (
+              <Text style={styles.errorText}>{errors.name}</Text>
+            ) : null}
           </View>
 
           <View style={styles.divider} />
@@ -156,8 +234,6 @@ const EditProfileScreen = () => {
     </SafeAreaView>
   );
 };
-
-// ... keep your existing styles ...
 
 const styles = StyleSheet.create({
   container: {
@@ -193,6 +269,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
+    minWidth: 70,
+    alignItems: "center",
+    justifyContent: "center",
   },
   saveButtonDisabled: {
     backgroundColor: "#a0b8ff",
@@ -239,6 +318,10 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#f9f9f9",
   },
+  inputError: {
+    borderColor: "#ff4d4f",
+    backgroundColor: "#fff2f0",
+  },
   nicknameInput: {
     borderColor: "#4a7dff",
     backgroundColor: "#f0f4ff",
@@ -247,6 +330,11 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#eee",
     marginVertical: 8,
+  },
+  errorText: {
+    color: "#ff4d4f",
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

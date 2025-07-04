@@ -1,282 +1,393 @@
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 
-// Configuration constants
 const API_CONFIG = {
-  BASE_URL: 'http://localhost:8080',
+  BASE_URL: "http://localhost:8080",
   ENDPOINTS: {
-    REGISTER: '/auth/user/register'
-  }
+    REGISTER: "/auth/user/register",
+  },
+  TIMEOUT: 10000,
 };
 
 const MindMateRegister = () => {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    nickName: '',
-    name: ''
+    username: "",
+    email: "",
+    password: "",
+    nickName: "",
+    name: "",
   });
+  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const validateForm = () => {
     const { username, email, password, nickName, name } = formData;
-    
-    if (!username || !email || !password || !nickName || !name) {
-      Alert.alert('Error', 'All fields are required');
-      return false;
+    let isValid = true;
+    const newErrors = {};
+
+    if (!username.trim()) {
+      newErrors.username = "Username is required";
+      isValid = false;
+    } else if (username.length < 3) {
+      newErrors.username = "Username must be at least 3 characters";
+      isValid = false;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
+    if (!email.trim()) {
+      newErrors.email = "Email is required";
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Please enter a valid email";
+      isValid = false;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return false;
+    if (!password) {
+      newErrors.password = "Password is required";
+      isValid = false;
+    } else if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+      isValid = false;
     }
 
-    return true;
+    if (!nickName.trim()) {
+      newErrors.nickName = "Nickname is required";
+      isValid = false;
+    }
+
+    if (!name.trim()) {
+      newErrors.name = "Full name is required";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleRegister = async () => {
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
     const payload = {
       email: formData.email,
       password: formData.password,
       userName: formData.username,
       nickName: formData.nickName,
-      name: formData.name
+      name: formData.name,
     };
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        API_CONFIG.TIMEOUT
+      );
+
       const response = await fetch(
         `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REGISTER}`,
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         }
       );
 
+      clearTimeout(timeoutId);
       const responseData = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          responseData.message || 
-          responseData.error || 
-          'Registration failed. Please try again.'
+          responseData.message || responseData.error || "Registration failed"
         );
       }
 
-      Alert.alert('Success', 'Registration successful! Please log in.', [
-        { text: 'OK', onPress: () => router.replace('/login') }
-      ]);
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        nickName: "",
+        name: "",
+      });
 
+      Alert.alert("Success", "Registration successful!", [
+        { text: "OK", onPress: () => router.replace("/login") },
+      ]);
     } catch (error) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = 'An unexpected error occurred';
-      if (error.message) {
+      let errorMessage = "An unexpected error occurred";
+      if (error.name === "AbortError") {
+        errorMessage = "Request timed out.";
+      } else if (error.message) {
         errorMessage = error.message;
       } else if (error instanceof TypeError) {
-        errorMessage = 'Network error: Please check your connection';
+        errorMessage = "Network error. Please check your connection.";
       }
-
-      Alert.alert('Error', errorMessage);
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLoginRedirect = () => {
-    router.replace('/login');
+    router.replace("/login");
   };
+
+  const renderForm = () => (
+    <>
+      <View style={styles.header}>
+        <Text style={styles.title}>MindMate</Text>
+        <Text style={styles.subtitle}>Create Your Account</Text>
+      </View>
+
+      <View style={styles.form}>
+        {/* Username */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, errors.username && styles.inputError]}
+            placeholder="Username"
+            value={formData.username}
+            onChangeText={(text) => handleChange("username", text)}
+            autoCapitalize="none"
+          />
+          {errors.username && (
+            <Text style={styles.errorText}>{errors.username}</Text>
+          )}
+        </View>
+
+        {/* Email */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="Email"
+            value={formData.email}
+            onChangeText={(text) => handleChange("email", text)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+        </View>
+
+        {/* Password */}
+        <View style={styles.inputContainer}>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={[styles.input, errors.password && styles.inputError]}
+              placeholder="Password"
+              value={formData.password}
+              onChangeText={(text) => handleChange("password", text)}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#64748b"
+              />
+            </TouchableOpacity>
+          </View>
+          {errors.password && (
+            <Text style={styles.errorText}>{errors.password}</Text>
+          )}
+        </View>
+
+        {/* Nickname */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, errors.nickName && styles.inputError]}
+            placeholder="Nickname"
+            value={formData.nickName}
+            onChangeText={(text) => handleChange("nickName", text)}
+          />
+          {errors.nickName && (
+            <Text style={styles.errorText}>{errors.nickName}</Text>
+          )}
+        </View>
+
+        {/* Full Name */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, errors.name && styles.inputError]}
+            placeholder="Full Name"
+            value={formData.name}
+            onChangeText={(text) => handleChange("name", text)}
+          />
+          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+        </View>
+
+        {/* Register Button */}
+        <TouchableOpacity
+          style={[styles.registerButton, isLoading && styles.disabledButton]}
+          onPress={handleRegister}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Create Account</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Already have an account?</Text>
+        <TouchableOpacity onPress={handleLoginRedirect}>
+          <Text style={styles.signInText}>Sign in</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>MindMate</Text>
-          <Text style={styles.subtitle}>Sign up</Text>
-        </View>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor="#999"
-            value={formData.username}
-            onChangeText={(text) => handleChange('username', text)}
-            autoCapitalize="none"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#999"
-            value={formData.email}
-            onChangeText={(text) => handleChange('email', text)}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={formData.password}
-            onChangeText={(text) => handleChange('password', text)}
-            secureTextEntry
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Nickname"
-            placeholderTextColor="#999"
-            value={formData.nickName}
-            onChangeText={(text) => handleChange('nickName', text)}
-            autoCapitalize="none"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            placeholderTextColor="#999"
-            value={formData.name}
-            onChangeText={(text) => handleChange('name', text)}
-            autoCapitalize="words"
-          />
-
-          <TouchableOpacity
-            style={[styles.registerButton, isLoading && styles.disabledButton]}
-            onPress={handleRegister}
-            disabled={isLoading}
+      {Platform.OS === "web" ? (
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          {renderForm()}
+        </ScrollView>
+      ) : (
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
           >
-            <Text style={styles.buttonText}>
-              {isLoading ? 'Processing...' : 'Sign up'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
-          <TouchableOpacity onPress={handleLoginRedirect}>
-            <Text style={styles.signInText}>Log in</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            <ScrollView
+              contentContainerStyle={styles.container}
+              keyboardShouldPersistTaps="handled"
+            >
+              {renderForm()}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      )}
     </SafeAreaView>
   );
 };
 
-export default MindMateRegister;
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   container: {
-    flex: 1,
     paddingHorizontal: 30,
-    justifyContent: 'center',
+    paddingTop: 40,
+    paddingBottom: 50,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   title: {
     fontSize: 36,
-    fontWeight: 'bold',
-    color: '#2d3748',
+    fontWeight: "bold",
+    color: "#4c6ef5",
     letterSpacing: 1.2,
   },
   subtitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#4a5568',
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#64748b",
     marginTop: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
   form: {
     marginBottom: 30,
   },
+  inputContainer: {
+    marginBottom: 20,
+  },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderColor: "#e2e8f0",
+    borderRadius: 10,
     paddingHorizontal: 16,
-    marginBottom: 20,
     fontSize: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: "#f8fafc",
+    color: "#334155",
+  },
+  inputError: {
+    borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
+  },
+  errorText: {
+    color: "#ef4444",
+    fontSize: 14,
+    marginTop: 5,
+    marginLeft: 5,
+  },
+  passwordContainer: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  eyeIcon: {
+    position: "absolute",
+    right: 15,
+    top: 15,
   },
   registerButton: {
     height: 50,
-    borderRadius: 8,
-    backgroundColor: '#4361ee',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#4361ee',
+    borderRadius: 10,
+    backgroundColor: "#4c6ef5",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#4c6ef5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 6,
+    marginTop: 10,
   },
   disabledButton: {
-    backgroundColor: '#a0aec0',
+    backgroundColor: "#94a3b8",
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 40,
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 20,
   },
   footerText: {
-    color: '#718096',
+    color: "#64748b",
     fontSize: 16,
   },
   signInText: {
-    color: '#4361ee',
+    color: "#4c6ef5",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 5,
   },
 });
+
+export default MindMateRegister;

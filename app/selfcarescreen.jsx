@@ -13,6 +13,16 @@ import {
   View,
 } from "react-native";
 
+// Configurable constants
+const API_CONFIG = {
+  BASE_URL: "http://localhost:8080/api/user", // Can be easily changed later
+  ENDPOINTS: {
+    AI_SUGGEST: "/ai-suggest",
+  },
+  CACHE_KEY: "selfCareSuggestion",
+  CACHE_TTL: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+};
+
 const SelfCareScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -22,70 +32,119 @@ const SelfCareScreen = () => {
   const [error, setError] = useState(null);
   const [fromDashboard, setFromDashboard] = useState(false);
 
+  // Parse suggestion from params if available
   useEffect(() => {
-    if (params?.suggestion) {
+    const parseSuggestionFromParams = async () => {
       try {
-        const parsedSuggestion = JSON.parse(params.suggestion);
-        setSuggestion({ suggestions: [parsedSuggestion] });
-        setFromDashboard(true);
-        setLoading(false);
+        if (params?.suggestion) {
+          const parsedSuggestion = JSON.parse(params.suggestion);
+          if (!parsedSuggestion || typeof parsedSuggestion !== "object") {
+            throw new Error("Invalid suggestion format");
+          }
+          setSuggestion({ suggestions: [parsedSuggestion] });
+          setFromDashboard(true);
+        }
       } catch (e) {
         console.error("Error parsing suggestion:", e);
-        setError("Invalid suggestion data");
+        setError("Invalid suggestion data. Please try again.");
+      } finally {
         setLoading(false);
       }
-    }
+    };
+
+    parseSuggestionFromParams();
   }, [params.suggestion]);
 
+  // Fetch suggestion from API or cache
   const fetchSuggestion = async () => {
     try {
       setRefreshing(true);
       setError(null);
 
+      // Skip cache if coming from dashboard
       if (!fromDashboard) {
-        const cachedData = await AsyncStorage.getItem("selfCareSuggestion");
-        if (cachedData) {
-          const parsedData = JSON.parse(cachedData);
-          if (new Date().getTime() - parsedData.timestamp < 24 * 60 * 60 * 1000) {
-            setSuggestion(parsedData.data);
-            setLoading(false);
-            setRefreshing(false);
-            return;
+        try {
+          const cachedData = await AsyncStorage.getItem(API_CONFIG.CACHE_KEY);
+          if (cachedData) {
+            const parsedData = JSON.parse(cachedData);
+            if (
+              new Date().getTime() - parsedData.timestamp <
+              API_CONFIG.CACHE_TTL
+            ) {
+              setSuggestion(parsedData.data);
+              setLoading(false);
+              setRefreshing(false);
+              return;
+            }
           }
+        } catch (cacheError) {
+          console.warn("Cache read failed, proceeding with API fetch:", cacheError);
         }
       }
 
-      const token = await AsyncStorage.getItem("token");
-      const response = await fetch("http://localhost:8080/api/user/ai-suggest", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      // Get token with error handling
+      let token;
+      try {
+        token = await AsyncStorage.getItem("token");
+        if (!token) throw new Error("No authentication token found");
+      } catch (tokenError) {
+        throw new Error("Authentication failed. Please login again.");
+      }
+
+      // API request with full error handling
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AI_SUGGEST}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Request failed with status ${response.status}`
+        );
       }
 
       const data = await response.json();
+
+      // Validate response structure
+      if (!data?.suggestions || !Array.isArray(data.suggestions)) {
+        throw new Error("Invalid response format from server");
+      }
+
       setSuggestion(data);
 
+      // Cache the new data if not from dashboard
       if (!fromDashboard) {
-        await AsyncStorage.setItem(
-          "selfCareSuggestion",
-          JSON.stringify({ data, timestamp: new Date().getTime() })
-        );
+        try {
+          await AsyncStorage.setItem(
+            API_CONFIG.CACHE_KEY,
+            JSON.stringify({
+              data,
+              timestamp: new Date().getTime(),
+            })
+          );
+        } catch (cacheError) {
+          console.error("Failed to cache data:", cacheError);
+        }
       }
     } catch (err) {
-      setError("Failed to fetch suggestions. Please try again later.");
-      console.error(err);
+      console.error("Fetch error:", err);
+      setError(
+        err.message || "Failed to fetch suggestions. Please try again later."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Initial fetch if no suggestion from params
   useEffect(() => {
     if (!params?.suggestion) {
       fetchSuggestion();
@@ -128,8 +187,19 @@ const SelfCareScreen = () => {
           <TouchableOpacity
             style={styles.retryButton}
             onPress={fetchSuggestion}
+            disabled={refreshing}
           >
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            {refreshing ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.secondaryButtonText}>Go Back</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -163,16 +233,22 @@ const SelfCareScreen = () => {
         {firstSuggestion ? (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.emoji}>{firstSuggestion.emoji}</Text>
+              <Text style={styles.emoji}>{firstSuggestion.emoji || "✨"}</Text>
               <View style={styles.cardTitleContainer}>
-                <Text style={styles.cardTitle}>{firstSuggestion.title}</Text>
-                <Text style={styles.cardCategory}>{firstSuggestion.type}</Text>
+                <Text style={styles.cardTitle}>
+                  {firstSuggestion.title || "Self-Care Activity"}
+                </Text>
+                <Text style={styles.cardCategory}>
+                  {firstSuggestion.type || "General"}
+                </Text>
               </View>
             </View>
 
             <View style={styles.contentContainer}>
               <Text style={styles.contentTitle}>How to practice:</Text>
-              <Text style={styles.contentText}>{firstSuggestion.content}</Text>
+              <Text style={styles.contentText}>
+                {firstSuggestion.content || "No instructions provided."}
+              </Text>
             </View>
 
             <View style={styles.benefitContainer}>
@@ -185,7 +261,7 @@ const SelfCareScreen = () => {
               <Text style={styles.benefitText}>Why this helps:</Text>
             </View>
             <Text style={styles.benefitDescription}>
-              {firstSuggestion.reason}
+              {firstSuggestion.reason || "This activity can help improve your wellbeing."}
             </Text>
           </View>
         ) : (
@@ -206,9 +282,19 @@ const SelfCareScreen = () => {
         </View>
 
         {!fromDashboard && (
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-            <Ionicons name="refresh" size={20} color="#6C63FF" />
-            <Text style={styles.refreshButtonText}>Get New Suggestion</Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <ActivityIndicator color="#6C63FF" />
+            ) : (
+              <>
+                <Ionicons name="refresh" size={20} color="#6C63FF" />
+                <Text style={styles.refreshButtonText}>Get New Suggestion</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -271,9 +357,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 12,
     marginTop: 20,
+    minWidth: 150,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 50,
   },
   retryButtonText: {
     color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  secondaryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: "#6C63FF",
+    backgroundColor: "transparent",
+  },
+  secondaryButtonText: {
+    color: "#6C63FF",
     fontWeight: "600",
     fontSize: 16,
   },

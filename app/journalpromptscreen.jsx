@@ -1,55 +1,90 @@
-import React, { useRef, useEffect } from 'react';
+import { Feather } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  Animated,
+  Dimensions,
+  Easing,
+  Linking,
+  Platform,
   SafeAreaView,
   ScrollView,
-  TouchableOpacity,
   StatusBar,
-  Platform,
-  Animated,
-  Dimensions
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
-const BreathingAnimation = () => {
+const BreathingAnimation = ({ onCompleteCycle }) => {
   const move = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(1)).current;
-  const circleWidth = 200;
-  
+  const scale = useRef(new Animated.Value(1)).current;
+  const circleWidth = Dimensions.get('window').width * 0.6;
+  const [cycleCount, setCycleCount] = useState(0);
+
+  const animateBreathing = () => {
+    return Animated.sequence([
+      // Inhale
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(move, {
+          toValue: 1,
+          duration: 4000,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1.2,
+          duration: 4000,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Pause at top
+      Animated.delay(500),
+      // Exhale
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(move, {
+          toValue: 0,
+          duration: 4000,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 4000,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Pause at bottom
+      Animated.delay(500),
+    ]);
+  };
+
   useEffect(() => {
     const animation = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(textOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(move, {
-            toValue: 1,
-            duration: 4000,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(textOpacity, {
-            delay: 100,
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(move, {
-            delay: 1000,
-            toValue: 0,
-            duration: 4000,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
+      animateBreathing(),
+      {
+        iterations: 3, // Complete 3 breathing cycles
+      }
     );
     
-    animation.start();
+    animation.start(({ finished }) => {
+      if (finished) {
+        onCompleteCycle();
+      }
+    });
+    
     return () => animation.stop();
   }, []);
 
@@ -75,7 +110,7 @@ const BreathingAnimation = () => {
           opacity: textOpacity,
         }}
       >
-        <Text style={styles.animationLabel}>Inhale</Text>
+        <Text style={styles.animationLabel}>Breathe In</Text>
       </Animated.View>
       
       <Animated.View
@@ -88,10 +123,10 @@ const BreathingAnimation = () => {
           opacity: exhale,
         }}
       >
-        <Text style={styles.animationLabel}>Exhale</Text>
+        <Text style={styles.animationLabel}>Breathe Out</Text>
       </Animated.View>
       
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((item) => {
+      {[...Array(8).keys()].map((item) => {
         const rotation = move.interpolate({
           inputRange: [0, 1],
           outputRange: [`${item * 45}deg`, `${item * 45 + 180}deg`],
@@ -102,7 +137,7 @@ const BreathingAnimation = () => {
             key={item}
             style={{
               opacity: 0.1,
-              backgroundColor: '#4299e1',
+              backgroundColor: '#4c6ef5',
               width: circleWidth,
               height: circleWidth,
               borderRadius: circleWidth / 2,
@@ -111,6 +146,7 @@ const BreathingAnimation = () => {
                 { rotateZ: rotation },
                 { translateX: translate },
                 { translateY: translate },
+                { scale },
               ],
             }}
           />
@@ -120,7 +156,31 @@ const BreathingAnimation = () => {
   );
 };
 
-const journalpromptscreen = () => {
+const JournalPromptScreen = () => {
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [prompts] = useState([
+    "Write about three things in your life that you're grateful for.",
+    "Describe a recent challenge and what you learned from it.",
+    "Reflect on a person who has positively impacted your life.",
+    "Write about a moment when you felt truly at peace."
+  ]);
+  const [currentPrompt, setCurrentPrompt] = useState(prompts[0]);
+
+  const handleCompleteCycle = () => {
+    setShowCompletion(true);
+    setTimeout(() => setShowCompletion(false), 3000);
+  };
+
+  const handleNewPrompt = () => {
+    const currentIndex = prompts.indexOf(currentPrompt);
+    const nextIndex = (currentIndex + 1) % prompts.length;
+    setCurrentPrompt(prompts[nextIndex]);
+  };
+
+  const openMeditationLink = () => {
+    Linking.openURL('https://www.youtube.com/watch?v=inpok4MKVLM');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar 
@@ -129,14 +189,26 @@ const journalpromptscreen = () => {
         translucent={true}
       />
       
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
-        <Text style={styles.header}>Journal Prompt</Text>
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>Mindful Journaling</Text>
+          <TouchableOpacity onPress={handleNewPrompt} style={styles.refreshButton}>
+            <Feather name="refresh-cw" size={20} color="#4c6ef5" />
+          </TouchableOpacity>
+        </View>
         
         {/* Prompt Card */}
         <View style={styles.card}>
+          <View style={styles.promptHeader}>
+            <Feather name="edit-3" size={20} color="#4c6ef5" />
+            <Text style={styles.promptHeaderText}>Today's Prompt</Text>
+          </View>
           <Text style={styles.promptText}>
-            Write about three things in your life that you're grateful for.
+            {currentPrompt}
           </Text>
         </View>
         
@@ -145,23 +217,56 @@ const journalpromptscreen = () => {
         
         {/* Breathing Animation */}
         <View style={styles.animationSection}>
-          <BreathingAnimation />
-          <Text style={styles.animationText}>Take a deep breath</Text>
+          {showCompletion ? (
+            <View style={styles.completionContainer}>
+              <Feather name="check-circle" size={60} color="#06D6A0" />
+              <Text style={styles.completionText}>Great job! You've completed 3 breathing cycles.</Text>
+            </View>
+          ) : (
+            <>
+              <BreathingAnimation onCompleteCycle={handleCompleteCycle} />
+              <Text style={styles.animationText}>Follow the animation to breathe deeply</Text>
+            </>
+          )}
         </View>
         
         {/* Quick Meditation Button */}
-        <TouchableOpacity style={styles.meditationButton}>
-          <Text style={styles.buttonText}>Quick Meditation</Text>
+        <TouchableOpacity 
+          style={styles.meditationButton}
+          onPress={openMeditationLink}
+        >
+          <Feather name="play-circle" size={24} color="white" style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>5-Minute Meditation</Text>
         </TouchableOpacity>
         
         {/* Why This Activity Section */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Why this activity?</Text>
+          <View style={styles.infoHeader}>
+            <Feather name="info" size={20} color="#4c6ef5" />
+            <Text style={styles.infoTitle}>Why This Activity?</Text>
+          </View>
           <Text style={styles.infoText}>
-            Practicing gratitude helps shift your focus from what's lacking to what's abundant in your life. 
-            This simple exercise can improve mood, reduce stress, and enhance overall well-being.
+            Research shows that combining journaling with mindful breathing can:
           </Text>
+          <View style={styles.benefitItem}>
+            <Feather name="check" size={16} color="#06D6A0" />
+            <Text style={styles.benefitText}>Reduce stress and anxiety levels</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Feather name="check" size={16} color="#06D6A0" />
+            <Text style={styles.benefitText}>Improve emotional awareness</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Feather name="check" size={16} color="#06D6A0" />
+            <Text style={styles.benefitText}>Enhance focus and clarity</Text>
+          </View>
         </View>
+        
+        {/* Start Journaling Button */}
+        <TouchableOpacity style={styles.journalButton}>
+          <Text style={styles.journalButtonText}>Start Journaling</Text>
+          <Feather name="arrow-right" size={20} color="#4c6ef5" />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -177,12 +282,21 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
   header: {
     fontSize: 24,
     fontWeight: '700',
     color: '#2d3748',
-    marginBottom: 30,
-    textAlign: 'center'
+  },
+  refreshButton: {
+    padding: 8,
+    backgroundColor: '#ebf4ff',
+    borderRadius: 12,
   },
   card: {
     backgroundColor: '#fff',
@@ -195,11 +309,21 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  promptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  promptHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4c6ef5',
+    marginLeft: 8,
+  },
   promptText: {
     fontSize: 20,
     lineHeight: 28,
     color: '#2d3748',
-    textAlign: 'center'
   },
   divider: {
     height: 1,
@@ -209,9 +333,11 @@ const styles = StyleSheet.create({
   animationSection: {
     alignItems: 'center',
     marginBottom: 30,
+    minHeight: 250,
+    justifyContent: 'center',
   },
   animationContainer: {
-    width: 200,
+    width: Dimensions.get('window').width * 0.6,
     position: 'relative',
     marginBottom: 20,
   },
@@ -221,21 +347,41 @@ const styles = StyleSheet.create({
     color: '#2d3748',
   },
   animationText: {
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4a5568',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  completionContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  completionText: {
+    fontSize: 18,
     fontWeight: '600',
     color: '#2d3748',
+    textAlign: 'center',
+    marginTop: 15,
+    lineHeight: 26,
   },
   meditationButton: {
-    backgroundColor: '#4299e1',
+    backgroundColor: '#4c6ef5',
     borderRadius: 12,
     paddingVertical: 18,
+    paddingHorizontal: 20,
     alignItems: 'center',
     marginBottom: 30,
-    shadowColor: '#4299e1',
+    shadowColor: '#4c6ef5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  buttonIcon: {
+    marginRight: 10,
   },
   buttonText: {
     color: 'white',
@@ -246,18 +392,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#ebf4ff',
     borderRadius: 16,
     padding: 20,
+    marginBottom: 20,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   infoTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#2d3748',
-    marginBottom: 12,
+    marginLeft: 8,
   },
   infoText: {
     fontSize: 16,
     lineHeight: 24,
     color: '#4a5568',
+    marginBottom: 15,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  benefitText: {
+    fontSize: 16,
+    color: '#4a5568',
+    marginLeft: 8,
+  },
+  journalButton: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    borderWidth: 2,
+    borderColor: '#4c6ef5',
+  },
+  journalButtonText: {
+    color: '#4c6ef5',
+    fontSize: 18,
+    fontWeight: '600',
+    marginRight: 10,
   },
 });
 
-export default journalpromptscreen;
+export default JournalPromptScreen;

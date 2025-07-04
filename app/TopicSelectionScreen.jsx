@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   SafeAreaView,
   ScrollView,
@@ -12,28 +13,105 @@ import {
   View,
 } from "react-native";
 
+// Configurable constants
+const TOPIC_CONFIG = {
+  BASE_URL: "http://localhost:8080/api", // Can be changed later
+  ENDPOINTS: {
+    TOPICS: "/topics",
+  },
+};
+
 const TopicSelectionScreen = () => {
-  const topics = [
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [topics, setTopics] = useState([
     { id: 1, name: "Anxiety", icon: "activity", color: "#6366F1" },
     { id: 2, name: "Student Life", icon: "book", color: "#06D6A0" },
     { id: 3, name: "Relationships", icon: "heart", color: "#EF476F" },
     { id: 4, name: "Loneliness", icon: "user", color: "#FF9E6D" },
     { id: 5, name: "Depression", icon: "cloud", color: "#118AB2" },
     { id: 6, name: "Self-Improvement", icon: "trending-up", color: "#FFD166" },
-  ];
+  ]);
+
+  // Fetch topics from API if needed
+  const fetchTopics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${TOPIC_CONFIG.BASE_URL}${TOPIC_CONFIG.ENDPOINTS.TOPICS}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setTopics(data);
+    } catch (err) {
+      console.error("Failed to fetch topics:", err);
+      setError("Failed to load topics. Using default topics instead.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTopicPress = (topicName) => {
-    const slug = topicName.toLowerCase().replace(/\s+/g, "-");
-    router.push(`/group/${slug}`);
+    try {
+      const slug = topicName.toLowerCase().replace(/\s+/g, "-");
+      if (!slug) throw new Error("Invalid topic name");
+      router.push(`/group/${slug}`);
+    } catch (err) {
+      console.error("Error navigating to topic:", err);
+      setError("Couldn't navigate to topic. Please try again.");
+    }
   };
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
+          <View style={styles.errorContainer}>
+            <Feather name="alert-circle" size={48} color="#EF476F" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchTopics}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.retryButtonText}>Retry</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.secondaryButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          accessibilityLabel="Support community topics list"
+        >
           {/* Header */}
           <View style={styles.headerContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              accessibilityLabel="Go back"
+              accessibilityHint="Navigates to previous screen"
+            >
               <Feather name="arrow-left" size={24} color="#6C63FF" />
             </TouchableOpacity>
             <View style={styles.headerTextContainer}>
@@ -51,21 +129,29 @@ const TopicSelectionScreen = () => {
           </View>
 
           {/* Topic Grid */}
-          <View style={styles.gridContainer}>
-            {topics.map((topic) => (
-              <TouchableOpacity
-                key={topic.id}
-                style={[styles.topicCard, { backgroundColor: topic.color }]}
-                activeOpacity={0.85}
-                onPress={() => handleTopicPress(topic.name)}
-              >
-                <View style={styles.iconContainer}>
-                  <Feather name={topic.icon} size={28} color="#fff" />
-                </View>
-                <Text style={styles.topicText}>{topic.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#6C63FF" />
+            </View>
+          ) : (
+            <View style={styles.gridContainer}>
+              {topics.map((topic) => (
+                <TouchableOpacity
+                  key={topic.id}
+                  style={[styles.topicCard, { backgroundColor: topic.color }]}
+                  activeOpacity={0.85}
+                  onPress={() => handleTopicPress(topic.name)}
+                  accessibilityLabel={`${topic.name} support group`}
+                  accessibilityHint={`Navigates to ${topic.name} discussion group`}
+                >
+                  <View style={styles.iconContainer}>
+                    <Feather name={topic.icon} size={28} color="#fff" />
+                  </View>
+                  <Text style={styles.topicText}>{topic.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Footer Message */}
           <View style={styles.footer}>
@@ -96,6 +182,24 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 40,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 30,
+  },
+  errorText: {
+    fontSize: 18,
+    color: "#2D3748",
+    textAlign: "center",
+    marginVertical: 20,
+    lineHeight: 26,
+  },
+  loadingContainer: {
+    height: cardSize * 3, // Approximate height of the grid
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerContainer: {
     flexDirection: "row",
@@ -196,6 +300,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#4A5568",
     fontWeight: "500",
+  },
+  retryButton: {
+    backgroundColor: "#6C63FF",
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    marginTop: 20,
+    minWidth: 150,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 50,
+  },
+  retryButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  secondaryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: "#6C63FF",
+    backgroundColor: "transparent",
+  },
+  secondaryButtonText: {
+    color: "#6C63FF",
+    fontWeight: "600",
+    fontSize: 16,
   },
 });
 

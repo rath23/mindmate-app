@@ -3,10 +3,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import { useFocusEffect } from 'expo-router';
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert, Platform, RefreshControl,
+  Alert,
+  Linking,
+  Platform,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -15,8 +18,14 @@ import {
   View
 } from "react-native";
 
-
-const BASE_URL = "http://localhost:8080";
+// API Configuration
+const API_CONFIG = {
+  BASE_URL: "http://localhost:8080/api",
+  ENDPOINTS: {
+    JOURNAL: "/journal"
+  },
+  TIMEOUT: 10000 // 10 seconds
+};
 
 const PastEntriesScreen = () => {
   const navigation = useNavigation();
@@ -25,55 +34,76 @@ const PastEntriesScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState(null);
 
-  
+  // Fetch entries with proper error handling
+  const fetchEntries = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
 
-  useFocusEffect(
-  React.useCallback(() => {
-    // Refresh your journal entries
-    fetchEntries();
-  }, [])
-);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
 
+      const response = await axios.get(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal
+        }
+      );
 
+      clearTimeout(timeoutId);
+      setEntries(response.data);
+    } catch (err) {
+      console.error("API fetch error:", err);
+      
+      let errorMessage = "Failed to load entries";
+      if (err.response) {
+        errorMessage = err.response.data?.message || errorMessage;
+      } else if (err.message.includes("Network Error")) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (err.message.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again.";
+      }
+
+      setError(errorMessage);
+      
+      if (err.message.includes("Authentication")) {
+        Alert.alert("Session Expired", "Please login again", [
+          { text: "OK", onPress: () => navigation.navigate("Login") }
+        ]);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Get auth token with error handling
   const getAuthToken = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       return token;
     } catch (err) {
       console.error("Token fetch error:", err);
-      return null;
+      throw err;
     }
   };
 
-  const fetchEntries = async () => {
-    setLoading(true);
-    const token = await getAuthToken();
-    if (!token) {
-      Alert.alert("Session Expired", "Please login again");
-      navigation.navigate("Login");
-      return;
-    }
-
-    try {
-      const response = await axios.get(`${BASE_URL}/api/journal`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setEntries(response.data);
-    } catch (err) {
-      console.error("API fetch error:", err);
-      Alert.alert("Error", "Failed to load entries");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEntries();
-  }, []);
+  // Refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchEntries();
+    }, [fetchEntries])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -84,79 +114,139 @@ const PastEntriesScreen = () => {
     setExpandedEntry(expandedEntry === id ? null : id);
   };
 
-const handleEditPress = (entry) => {
+  const handleEditPress = (entry) => {
     navigation.navigate("JournalEntryScreen", {
-      id: entry.id, // or entry._id depending on your backend
+      id: entry.id,
       heading: entry.heading,
       body: entry.body,
       createdAt: entry.createdAt,
-      editMode: "false", // Set to false for editing
+      editMode: "true",
     });
   };
 
   const handleDeletePress = (id) => {
- if (Platform.OS === "web") {
-    const confirm = window.confirm("Are you sure you want to delete this entry?");
-    if (confirm) performDelete(id);
-  } else {
-    Alert.alert(
-      "Confirm Delete",
-      "Are you sure you want to delete this entry?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => performDelete(id),
-        },
-      ]
-    );
-  }
+    const deleteConfirmation = () => {
+      Alert.alert(
+        "Confirm Delete",
+        "Are you sure you want to delete this entry?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => performDelete(id),
+          },
+        ]
+      );
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to delete this entry?")) {
+        performDelete(id);
+      }
+    } else {
+      deleteConfirmation();
+    }
   };
 
   const performDelete = async (id) => {
-     console.log("Deleting entry with ID:", id); // Add this line
     setDeletingId(id);
     try {
       const token = await getAuthToken();
       if (!token) {
-        Alert.alert("Unauthorized", "Please login again");
-        return;
+        throw new Error("Authentication token not found");
       }
 
-      await axios.delete(`${BASE_URL}/api/journal/${id}`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+
+      await axios.delete(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       setEntries((prev) => prev.filter((e) => e.id !== id));
     } catch (error) {
       console.error("Delete error:", error);
-      Alert.alert("Error", "Failed to delete the entry");
+      
+      let errorMessage = "Failed to delete the entry";
+      if (error.response) {
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.message.includes("Network Error")) {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      Alert.alert("Error", errorMessage);
     } finally {
       setDeletingId(null);
     }
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch (e) {
+      return "Unknown date";
+    }
   };
 
   const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (e) {
+      return "Unknown time";
+    }
   };
 
-  if (loading) {
+  const handleExportPress = async () => {
+    try {
+      const csvContent = entries.map(entry => 
+        `"${entry.heading}","${entry.body.replace(/"/g, '""')}","${entry.createdAt}"`
+      ).join('\n');
+      
+      const csvHeader = "Title,Content,Date\n";
+      const fullCsv = csvHeader + csvContent;
+      
+      if (Platform.OS === 'web') {
+        // For web - create download link
+        const blob = new Blob([fullCsv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'journal_entries.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For mobile - show alert with instructions
+        Alert.alert(
+          "Export Entries",
+          "To export your entries, please visit this app on a computer or use a dedicated journaling app that supports export functionality.",
+          [
+            { text: "OK" },
+            { text: "Learn More", onPress: () => Linking.openURL('https://example.com/export-help') }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert("Error", "Failed to prepare export data");
+    }
+  };
+
+  if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loaderContainer}>
@@ -176,8 +266,10 @@ const handleEditPress = (entry) => {
         >
           <Feather name="arrow-left" size={24} color="#6C63FF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Past Entries</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Journal Archive</Text>
+        <TouchableOpacity onPress={handleExportPress}>
+          <Ionicons name="download-outline" size={24} color="#6C63FF" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -192,19 +284,23 @@ const handleEditPress = (entry) => {
           />
         }
       >
-        <View style={styles.subtitleContainer}>
-          <Ionicons name="journal-outline" size={20} color="#6C63FF" />
-          <Text style={styles.subtitle}>
-            {entries.length} memory{entries.length !== 1 ? "ies" : "y"} captured
-          </Text>
-        </View>
-
-        {entries.length === 0 ? (
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="warning-outline" size={40} color="#EF476F" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchEntries}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : entries.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Feather name="book-open" size={60} color="#D0D0D0" />
-            <Text style={styles.emptyTitle}>No entries yet</Text>
+            <Text style={styles.emptyTitle}>Your journal is empty</Text>
             <Text style={styles.emptyText}>
-              Your reflections will appear here once you start journaling
+              Start writing to capture your thoughts and reflections
             </Text>
             <TouchableOpacity
               style={styles.addButton}
@@ -214,64 +310,79 @@ const handleEditPress = (entry) => {
             </TouchableOpacity>
           </View>
         ) : (
-          entries.map((entry) => (
-            <View
-              key={entry.id}
-              style={[
-                styles.entryContainer,
-                expandedEntry === entry.id && styles.expandedEntry,
-              ]}
-            >
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => toggleExpand(entry.id)}
-              >
-                <View style={styles.entryHeader}>
-                  <View style={styles.dateContainer}>
-                    <Feather name="calendar" size={14} color="#6C63FF" />
-                    <Text style={styles.date}>{formatDate(entry.createdAt)}</Text>
-                  </View>
-                  <Text style={styles.time}>{formatTime(entry.createdAt)}</Text>
-                </View>
-
-                <Text style={styles.heading} numberOfLines={2}>
-                  {entry.heading}
+          <>
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{entries.length}</Text>
+                <Text style={styles.statLabel}>Total Entries</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>
+                  {new Set(entries.map(e => new Date(e.createdAt).toDateString())).size}
                 </Text>
+                <Text style={styles.statLabel}>Days Journaled</Text>
+              </View>
+            </View>
+
+            {entries.map((entry) => (
+              <View
+                key={entry.id}
+                style={[
+                  styles.entryContainer,
+                  expandedEntry === entry.id && styles.expandedEntry,
+                ]}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => toggleExpand(entry.id)}
+                >
+                  <View style={styles.entryHeader}>
+                    <View style={styles.dateContainer}>
+                      <Feather name="calendar" size={14} color="#6C63FF" />
+                      <Text style={styles.date}>{formatDate(entry.createdAt)}</Text>
+                    </View>
+                    <Text style={styles.time}>{formatTime(entry.createdAt)}</Text>
+                  </View>
+
+                  <Text style={styles.heading} numberOfLines={expandedEntry === entry.id ? 0 : 2}>
+                    {entry.heading}
+                  </Text>
+
+                  {expandedEntry === entry.id && (
+                    <Text style={styles.content}>{entry.body}</Text>
+                  )}
+                </TouchableOpacity>
 
                 {expandedEntry === entry.id && (
-                  <Text style={styles.content}>{entry.body}</Text>
+                  <View style={styles.entryFooter}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => handleEditPress(entry)}
+                    >
+                      <Feather name="edit" size={16} color="#6C63FF" />
+                      <Text style={styles.actionText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => handleDeletePress(entry.id)}
+                      disabled={deletingId === entry.id}
+                    >
+                      {deletingId === entry.id ? (
+                        <ActivityIndicator size="small" color="#EF476F" />
+                      ) : (
+                        <>
+                          <Feather name="trash-2" size={16} color="#EF476F" />
+                          <Text style={[styles.actionText, { color: "#EF476F" }]}>
+                            Delete
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 )}
-              </TouchableOpacity>
-
-              {expandedEntry === entry.id && (
-                <View style={styles.entryFooter}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleEditPress(entry)}
-                  >
-                    <Feather name="edit" size={16} color="#6C63FF" />
-                    <Text style={styles.actionText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleDeletePress(entry.id)}
-                    disabled={deletingId === entry.id}
-                  >
-                    {deletingId === entry.id ? (
-                      <ActivityIndicator size="small" color="#EF476F" />
-                    ) : (
-                      <>
-                        <Feather name="trash-2" size={16} color="#EF476F" />
-                        <Text style={[styles.actionText, { color: "#EF476F" }]}>
-                          Delete
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ))
+              </View>
+            ))}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -324,19 +435,52 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  subtitleContainer: {
+  statsContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    justifyContent: "space-around",
     marginBottom: 25,
-    padding: 12,
+    padding: 15,
     backgroundColor: "#F0F4FF",
+    borderRadius: 16,
+  },
+  statItem: {
+    alignItems: "center",
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#6C63FF",
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#7D7D9C",
+    marginTop: 4,
+  },
+  errorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    marginTop: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#4A4A72",
+    textAlign: "center",
+    marginTop: 15,
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "#6C63FF",
     borderRadius: 12,
   },
-  subtitle: {
+  retryButtonText: {
+    color: "white",
     fontSize: 16,
     fontWeight: "600",
-    color: "#6C63FF",
-    marginLeft: 10,
   },
   emptyContainer: {
     alignItems: "center",
@@ -426,6 +570,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#5A5A7A",
     lineHeight: 24,
+    marginTop: 10,
   },
   entryFooter: {
     flexDirection: "row",

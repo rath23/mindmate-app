@@ -21,7 +21,7 @@ import { AuthContext } from "../context/AuthContext";
 
 const DashboardScreen = () => {
   const CACHE_KEY = "dashboardData";
-  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes cache
+  const CACHE_DURATION = 30 * 60 * 1000; 
   const [menuVisible, setMenuVisible] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +51,7 @@ const DashboardScreen = () => {
 
       // Try to get cached data
       const cachedData = await SecureStore.getItemAsync(CACHE_KEY);
+
       let shouldUseCache = false;
 
       if (cachedData) {

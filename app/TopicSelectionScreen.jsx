@@ -5,17 +5,19 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 // Configurable constants
 const TOPIC_CONFIG = {
-  BASE_URL: "http://localhost:8080/api", // Can be changed later
+  BASE_URL: "https://mindmate-ye33.onrender.com/api",
   ENDPOINTS: {
     TOPICS: "/topics",
   },
@@ -33,7 +35,6 @@ const TopicSelectionScreen = () => {
     { id: 6, name: "Self-Improvement", icon: "trending-up", color: "#FFD166" },
   ]);
 
-  // Fetch topics from API if needed
   const fetchTopics = async () => {
     try {
       setLoading(true);
@@ -68,7 +69,8 @@ const TopicSelectionScreen = () => {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, styles.errorSafeArea]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f0f4ff" />
         <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
           <View style={styles.errorContainer}>
             <Feather name="alert-circle" size={48} color="#EF476F" />
@@ -97,7 +99,8 @@ const TopicSelectionScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.contentSafeArea]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f0f4ff" />
       <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
         <ScrollView
           contentContainerStyle={styles.container}
@@ -174,10 +177,16 @@ const cardSize = (width - 60) / 2;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  errorSafeArea: {
+    backgroundColor: "#f0f4ff",
+  },
+  contentSafeArea: {
     backgroundColor: "#fff",
   },
   background: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     padding: 20,
@@ -188,6 +197,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
+    paddingTop: Platform.OS === 'ios' ? 0 : 40, // Extra padding for Android
   },
   errorText: {
     fontSize: 18,
@@ -197,7 +207,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   loadingContainer: {
-    height: cardSize * 3, // Approximate height of the grid
+    height: cardSize * 3,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -205,6 +215,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 20,
+    marginTop: Platform.OS === 'ios' ? 0 : 10, // Adjust for Android
   },
   backButton: {
     padding: 10,

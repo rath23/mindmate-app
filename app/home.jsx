@@ -26,7 +26,7 @@ const DashboardScreen = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { logout, user, token } = useContext(AuthContext);
+  const { logout, user } = useContext(AuthContext);
   const router = useRouter();
 
   // Mood options mapping
@@ -38,81 +38,107 @@ const DashboardScreen = () => {
     { emoji: "😢", value: "VERY_SAD", label: "Very Sad" },
   ];
 
-  // Fetch dashboard data from backend
-  const fetchDashboardData = async (forceRefresh = false) => {
-    try {
-      setLoading(true);
 
-      // Clear cache if forcing refresh
-      if (forceRefresh) {
-        await SecureStore.deleteItemAsync(CACHE_KEY);
-        await AsyncStorage.removeItem("dashboardData");
-      }
 
-      // Try to get cached data
-      const cachedData = await SecureStore.getItemAsync(CACHE_KEY);
+const fetchDashboardData = async (forceRefresh = false) => {
+  try {
+    setLoading(true);
 
-      let shouldUseCache = false;
-
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          if (Date.now() - timestamp < CACHE_DURATION) {
-            setDashboardData(data);
-            shouldUseCache = true;
-          }
-        } catch (e) {
-          console.warn("Failed to parse cached dashboard data", e);
-        }
-      }
-
-      // Always fetch fresh data in background
-      const response = await fetch("http://localhost:8080/api/user/home", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const freshData = await response.json();
-        setDashboardData(freshData);
-
-        // Update cache with fresh data
-        await SecureStore.setItemAsync(
-          CACHE_KEY,
-          JSON.stringify({
-            data: freshData,
-            timestamp: Date.now(),
-          })
-        );
-      } else if (!shouldUseCache) {
-        throw new Error("Failed to fetch dashboard data");
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-
-      // Final fallback to AsyncStorage if both network and cache fail
-      if (!dashboardData) {
-        const fallbackData = await AsyncStorage.getItem("dashboardData");
-        if (fallbackData) {
-          setDashboardData(JSON.parse(fallbackData).data);
-        }
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    if (forceRefresh) {
+      await SecureStore.deleteItemAsync(CACHE_KEY);
+      await AsyncStorage.removeItem(CACHE_KEY);
     }
-  };
 
-  // Handle pull-to-refresh
+    const cachedData = await SecureStore.getItemAsync(CACHE_KEY);
+    let shouldUseCache = false;
+
+    if (cachedData) {
+      try {
+        const { data, timestamp } = JSON.parse(cachedData);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setDashboardData(data);
+          shouldUseCache = true;
+        }
+      } catch (e) {
+        console.warn("Failed to parse cached dashboard data", e);
+      }
+    }
+
+    const token = await AsyncStorage.getItem("token");
+
+    const response = await fetch("https://mindmate-ye33.onrender.com/api/user/home", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.ok) {
+      const freshData = await response.json();
+
+      // Don't cache if suggestions are missing or backend sent a warning structure
+      if (freshData?.suggestions?.length > 0 || freshData?.todayMood) {
+        const cachePayload = JSON.stringify({
+          data: freshData,
+          timestamp: Date.now(),
+        });
+
+        await SecureStore.setItemAsync(CACHE_KEY, cachePayload);
+        await AsyncStorage.setItem(CACHE_KEY, cachePayload);
+      }
+
+      setDashboardData(freshData);
+
+    } else {
+      const msg = await response.text();
+      console.warn("Failed to fetch fresh data:", msg);
+
+      if (!shouldUseCache) {
+        throw new Error("Server error: " + msg);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error.message);
+
+    if (!dashboardData) {
+      try {
+        const fallbackData = await AsyncStorage.getItem(CACHE_KEY);
+        if (fallbackData) {
+          const parsed = JSON.parse(fallbackData);
+          setDashboardData(parsed.data);
+          console.log("Used AsyncStorage fallback for dashboard data.");
+          await AsyncStorage.removeItem(CACHE_KEY); // Clean up fallback
+        }
+      } catch (e) {
+        console.error("Failed to use fallback from AsyncStorage", e);
+      }
+    }
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
+
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchDashboardData(true);
   };
 
+
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const clearDashboardCache = async () => {
+  try {
+    await SecureStore.deleteItemAsync("dashboardData");
+    await AsyncStorage.removeItem("dashboardData");
+  } catch (err) {
+    console.warn("Failed to clear cache:", err);
+  }
+};
+
 
   const handleMenuPress = async (action) => {
     setMenuVisible(false);
@@ -127,6 +153,7 @@ const DashboardScreen = () => {
         router.push("/settingscreen");
         break;
       case "logout":
+        await clearDashboardCache(); 
         await logout();
         router.replace("/login");
         break;

@@ -12,6 +12,7 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,7 +21,7 @@ import {
 
 // API Configuration
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api",
+  BASE_URL: "https://mindmate-ye33.onrender.com/api",
   ENDPOINTS: {
     JOURNAL: "/journal"
   },
@@ -120,7 +121,7 @@ const PastEntriesScreen = () => {
       heading: entry.heading,
       body: entry.body,
       createdAt: entry.createdAt,
-      editMode: "true",
+      editMode: "false",
     });
   };
 
@@ -249,6 +250,7 @@ const PastEntriesScreen = () => {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F8F9FE" />
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#6C63FF" />
           <Text style={styles.loaderText}>Loading your memories...</Text>
@@ -259,132 +261,135 @@ const PastEntriesScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
+      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FE" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Feather name="arrow-left" size={24} color="#6C63FF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Journal Archive</Text>
+          <TouchableOpacity onPress={handleExportPress}>
+            <Ionicons name="download-outline" size={24} color="#6C63FF" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#6C63FF"]}
+              tintColor="#6C63FF"
+            />
+          }
         >
-          <Feather name="arrow-left" size={24} color="#6C63FF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Journal Archive</Text>
-        <TouchableOpacity onPress={handleExportPress}>
-          <Ionicons name="download-outline" size={24} color="#6C63FF" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#6C63FF"]}
-            tintColor="#6C63FF"
-          />
-        }
-      >
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="warning-outline" size={40} color="#EF476F" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={fetchEntries}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
-          </View>
-        ) : entries.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Feather name="book-open" size={60} color="#D0D0D0" />
-            <Text style={styles.emptyTitle}>Your journal is empty</Text>
-            <Text style={styles.emptyText}>
-              Start writing to capture your thoughts and reflections
-            </Text>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => navigation.navigate("JournalNotesScreen")}
-            >
-              <Text style={styles.addButtonText}>Create First Entry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{entries.length}</Text>
-                <Text style={styles.statLabel}>Total Entries</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {new Set(entries.map(e => new Date(e.createdAt).toDateString())).size}
-                </Text>
-                <Text style={styles.statLabel}>Days Journaled</Text>
-              </View>
-            </View>
-
-            {entries.map((entry) => (
-              <View
-                key={entry.id}
-                style={[
-                  styles.entryContainer,
-                  expandedEntry === entry.id && styles.expandedEntry,
-                ]}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="warning-outline" size={40} color="#EF476F" />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={fetchEntries}
               >
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => toggleExpand(entry.id)}
-                >
-                  <View style={styles.entryHeader}>
-                    <View style={styles.dateContainer}>
-                      <Feather name="calendar" size={14} color="#6C63FF" />
-                      <Text style={styles.date}>{formatDate(entry.createdAt)}</Text>
-                    </View>
-                    <Text style={styles.time}>{formatTime(entry.createdAt)}</Text>
-                  </View>
-
-                  <Text style={styles.heading} numberOfLines={expandedEntry === entry.id ? 0 : 2}>
-                    {entry.heading}
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            </View>
+          ) : entries.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Feather name="book-open" size={60} color="#D0D0D0" />
+              <Text style={styles.emptyTitle}>Your journal is empty</Text>
+              <Text style={styles.emptyText}>
+                Start writing to capture your thoughts and reflections
+              </Text>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => navigation.navigate("JournalNotesScreen")}
+              >
+                <Text style={styles.addButtonText}>Create First Entry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{entries.length}</Text>
+                  <Text style={styles.statLabel}>Total Entries</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>
+                    {new Set(entries.map(e => new Date(e.createdAt).toDateString())).size}
                   </Text>
+                  <Text style={styles.statLabel}>Days Journaled</Text>
+                </View>
+              </View>
+
+              {entries.map((entry) => (
+                <View
+                  key={entry.id}
+                  style={[
+                    styles.entryContainer,
+                    expandedEntry === entry.id && styles.expandedEntry,
+                  ]}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => toggleExpand(entry.id)}
+                  >
+                    <View style={styles.entryHeader}>
+                      <View style={styles.dateContainer}>
+                        <Feather name="calendar" size={14} color="#6C63FF" />
+                        <Text style={styles.date}>{formatDate(entry.createdAt)}</Text>
+                      </View>
+                      <Text style={styles.time}>{formatTime(entry.createdAt)}</Text>
+                    </View>
+
+                    <Text style={styles.heading} numberOfLines={expandedEntry === entry.id ? 0 : 2}>
+                      {entry.heading}
+                    </Text>
+
+                    {expandedEntry === entry.id && (
+                      <Text style={styles.content}>{entry.body}</Text>
+                    )}
+                  </TouchableOpacity>
 
                   {expandedEntry === entry.id && (
-                    <Text style={styles.content}>{entry.body}</Text>
+                    <View style={styles.entryFooter}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleEditPress(entry)}
+                      >
+                        <Feather name="edit" size={16} color="#6C63FF" />
+                        <Text style={styles.actionText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleDeletePress(entry.id)}
+                        disabled={deletingId === entry.id}
+                      >
+                        {deletingId === entry.id ? (
+                          <ActivityIndicator size="small" color="#EF476F" />
+                        ) : (
+                          <>
+                            <Feather name="trash-2" size={16} color="#EF476F" />
+                            <Text style={[styles.actionText, { color: "#EF476F" }]}>
+                              Delete
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   )}
-                </TouchableOpacity>
-
-                {expandedEntry === entry.id && (
-                  <View style={styles.entryFooter}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleEditPress(entry)}
-                    >
-                      <Feather name="edit" size={16} color="#6C63FF" />
-                      <Text style={styles.actionText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleDeletePress(entry.id)}
-                      disabled={deletingId === entry.id}
-                    >
-                      {deletingId === entry.id ? (
-                        <ActivityIndicator size="small" color="#EF476F" />
-                      ) : (
-                        <>
-                          <Feather name="trash-2" size={16} color="#EF476F" />
-                          <Text style={[styles.actionText, { color: "#EF476F" }]}>
-                            Delete
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            ))}
-          </>
-        )}
-      </ScrollView>
+                </View>
+              ))}
+            </>
+          )}
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -393,6 +398,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#F8F9FE",
+  },
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
   },
   loaderContainer: {
     flex: 1,

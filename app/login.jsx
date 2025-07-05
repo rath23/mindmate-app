@@ -1,10 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useContext, useState } from "react";
+import { useContext, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -14,9 +14,8 @@ import {
 } from "react-native";
 import { AuthContext } from "../context/AuthContext";
 
-// Configuration constants
 const API_CONFIG = {
-  BASE_URL: 'http://localhost:8080',
+  BASE_URL: 'https://mindmate-ye33.onrender.com',
   ENDPOINTS: {
     LOGIN: '/auth/user/login'
   }
@@ -29,6 +28,7 @@ const MindMateLogin = () => {
     password: ""
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useContext(AuthContext);
 
   const handleChange = (field, value) => {
@@ -41,61 +41,65 @@ const MindMateLogin = () => {
   const validateForm = () => {
     const { username, password } = formData;
     
-    if (!username || !password) {
-      Alert.alert('Error', 'Both username and password are required');
+    if (!username.trim()) {
+      Alert.alert('Error', 'Username is required');
+      return false;
+    }
+
+    if (!password) {
+      Alert.alert('Error', 'Password is required');
       return false;
     }
 
     return true;
   };
 
-const handleLogin = async () => {
-  if (!validateForm()) return;
-  
-  setIsLoading(true);
-  
-  try {
-    const response = await fetch(
-      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          password: formData.password,
-          userName: formData.username,
-        }),
-      }
-    );
+  const handleLogin = async () => {
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            password: formData.password,
+            userName: formData.username,
+          }),
+        }
+      );
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      // Handle 401 (wrong credentials) differently from other errors
-      if (response.status === 401) {
-        throw new Error(data.error || "Invalid username or password");
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(data.error || "Invalid username or password");
+        }
+        throw new Error(data.error || `Login failed (status ${response.status})`);
       }
-      throw new Error(data.error || `Login failed (status ${response.status})`);
+
+      login(data.token);
+      router.replace("/home");
+
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert(
+        'Login Failed', 
+        error.message || 'Invalid username or password'
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-    login(data.token);
-    router.replace("/home");
-
-  } catch (error) {
-    console.error("Login error:", error);
-    Alert.alert(
-      'Login Failed', 
-      error.message || 'Invalid username or password'
-    );
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleAnonymousLogin = () => {
     Alert.alert(
-      'Anonymous Login',
+      'Continue as Guest',
       'You can explore the app with limited features',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -111,62 +115,100 @@ const handleLogin = async () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        // behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
+        // keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+          enableOnAndroid={true}
+    extraScrollHeight={20}
+    keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>MindMate</Text>
-          <Text style={styles.subtitle}>Login</Text>
-        </View>
+        <View style={styles.content}>
+          {/* App Title */}
+          <View style={styles.appTitleContainer}>
+            <Text style={styles.appTitle}>MindMate</Text>
+            <Text style={styles.appSubtitle}>Your mental wellness companion</Text>
+          </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor="#999"
-            value={formData.username}
-            onChangeText={(text) => handleChange('username', text)}
-            autoCapitalize="none"
-          />
+          {/* Login Form */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Sign In</Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your username"
+                placeholderTextColor="#94a3b8"
+                value={formData.username}
+                onChangeText={(text) => handleChange('username', text)}
+                autoCapitalize="none"
+              />
+            </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={formData.password}
-            onChangeText={(text) => handleChange('password', text)}
-            secureTextEntry
-          />
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#94a3b8"
+                  value={formData.password}
+                  onChangeText={(text) => handleChange('password', text)}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off" : "eye"} 
+                    size={20} 
+                    color="#64748b" 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.disabledButton]}
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.buttonText}>Log in</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
 
-        {/* Anonymous Login */}
-        <TouchableOpacity
-          style={styles.anonymousButton}
-          onPress={handleAnonymousLogin}
-        >
-          <Text style={styles.anonymousText}>Continue anonymously</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={handleSignUp}>
-            <Text style={styles.signUpText}>Sign up</Text>
-          </TouchableOpacity>
+          {/* Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Secondary Options */}
+          <View style={styles.secondaryOptions}>
+            <TouchableOpacity
+              style={styles.anonymousButton}
+              onPress={handleAnonymousLogin}
+            >
+              <Text style={styles.anonymousText}>Continue as Guest</Text>
+            </TouchableOpacity>
+
+            <View style={styles.signUpContainer}>
+              <Text style={styles.signUpText}>Don't have an account?</Text>
+              <TouchableOpacity onPress={handleSignUp}>
+                <Text style={styles.signUpLink}>Sign up</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -176,86 +218,144 @@ const handleLogin = async () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f8fafc",
   },
   container: {
     flex: 1,
-    paddingHorizontal: 30,
-    justifyContent: "center",
   },
-  header: {
-    alignItems: "center",
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  appTitleContainer: {
+    alignItems: 'center',
     marginBottom: 40,
   },
-  title: {
+  appTitle: {
     fontSize: 36,
     fontWeight: "bold",
-    color: "#2d3748",
-    letterSpacing: 1.2,
+    color: "#4f46e5",
+    letterSpacing: 0.5,
   },
-  subtitle: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#4a5568",
+  appSubtitle: {
+    fontSize: 16,
+    color: "#64748b",
     marginTop: 8,
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
-  form: {
-    marginBottom: 30,
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#334155',
+    marginBottom: 8,
   },
   input: {
     height: 50,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 16,
-    marginBottom: 20,
     fontSize: 16,
     backgroundColor: "#f8fafc",
+    color: "#1e293b",
+  },
+  passwordContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
   },
   loginButton: {
     height: 50,
-    borderRadius: 8,
-    backgroundColor: "#4361ee",
+    borderRadius: 10,
+    backgroundColor: "#4f46e5",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#4361ee",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    marginTop: 8,
   },
   disabledButton: {
-    backgroundColor: "#a0aec0",
+    backgroundColor: "#94a3b8",
   },
   buttonText: {
     color: "white",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: 12,
+  },
+  forgotPasswordText: {
+    color: '#4f46e5',
+    fontSize: 14,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e2e8f0',
+  },
+  dividerText: {
+    color: '#64748b',
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  secondaryOptions: {
+    marginTop: 8,
   },
   anonymousButton: {
-    alignSelf: "center",
-    paddingVertical: 12,
+    height: 50,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    marginBottom: 16,
   },
   anonymousText: {
-    color: "#4361ee",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 40,
-  },
-  footerText: {
-    color: "#718096",
-    fontSize: 16,
-  },
-  signUpText: {
-    color: "#4361ee",
+    color: "#4f46e5",
     fontSize: 16,
     fontWeight: "600",
+  },
+  signUpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  signUpText: {
+    color: '#64748b',
+    fontSize: 14,
+  },
+  signUpLink: {
+    color: '#4f46e5',
+    fontSize: 14,
+    fontWeight: '600',
     marginLeft: 5,
   },
 });

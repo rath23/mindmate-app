@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.muneer_ahmad.mindmateapp"
     },
     "web": {
       "bundler": "metro",
@@ -34,10 +35,18 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2b6797dd-7020-4c65-816a-10b9ef754f87"
+      }
+    },
+    "owner": "muneer_ahmad"
   }
 }

@@ -7,6 +7,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -20,8 +21,7 @@ import {
 import SockJS from "sockjs-client";
 import { AuthContext } from '../../context/AuthContext';
 
-// Get device width
-const { width: DEVICE_WIDTH } = Dimensions.get('window');
+const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = Dimensions.get('window');
 
 const GroupChatScreen = () => {
   const { user } = useContext(AuthContext);
@@ -32,9 +32,33 @@ const GroupChatScreen = () => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [nickname, setNickname] = useState("");
-  const [inputHeight, setInputHeight] = useState(50); // Initial height for text input
+  const [inputHeight, setInputHeight] = useState(50);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef(null);
   const stompClient = useRef(null);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const initUser = async () => {
@@ -55,60 +79,63 @@ const GroupChatScreen = () => {
 
   // Connect to WebSocket
   useEffect(() => {
-  const connectWebSocket = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
+    const connectWebSocket = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
 
-      if (!token || !userId || !nickname) {
-        console.warn("Missing token or user info, skipping WebSocket connection.");
-        return;
+        if (!token || !userId || !nickname) {
+          console.warn("Missing token or user info, skipping WebSocket connection.");
+          return;
+        }
+
+        const socket = new SockJS("https://mindmate-ye33.onrender.com/ws-chat");
+
+        stompClient.current = new Client({
+          webSocketFactory: () => socket,
+          reconnectDelay: 5000,
+          debug: (str) => console.log(str),
+          connectHeaders: {
+            Authorization: `Bearer ${token}`,
+          },
+          onConnect: () => {
+            console.log("Connected to WebSocket");
+
+            stompClient.current.subscribe(`/topic/chat.${topic}`, (message) => {
+              const newMessage = JSON.parse(message.body);
+              setChatMessages(prev => [...prev, newMessage]);
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            });
+          },
+          onStompError: (frame) => {
+            console.error("Broker error:", frame.headers["message"]);
+            console.error("Details:", frame.body);
+          },
+        });
+
+        stompClient.current.activate();
+      } catch (err) {
+        console.error("WebSocket connection failed:", err);
       }
+    };
 
-      const socket = new SockJS("http://localhost:8080/ws-chat");
+    connectWebSocket();
 
-      stompClient.current = new Client({
-        webSocketFactory: () => socket,
-        reconnectDelay: 5000,
-        debug: (str) => console.log(str),
-        connectHeaders: {
-          Authorization: `Bearer ${token}`, // sent during the STOMP CONNECT frame
-        },
-        onConnect: () => {
-          console.log("Connected to WebSocket");
-
-          stompClient.current.subscribe(`/topic/chat.${topic}`, (message) => {
-            const newMessage = JSON.parse(message.body);
-            setChatMessages((prev) => [...prev, newMessage]);
-          });
-        },
-        onStompError: (frame) => {
-          console.error("Broker error:", frame.headers["message"]);
-          console.error("Details:", frame.body);
-        },
-      });
-
-      stompClient.current.activate();
-    } catch (err) {
-      console.error("WebSocket connection failed:", err);
-    }
-  };
-
-  connectWebSocket();
-
-  return () => {
-    if (stompClient.current) {
-      stompClient.current.deactivate();
-      console.log("WebSocket disconnected");
-    }
-  };
-}, [topic, userId, nickname]);
+    return () => {
+      if (stompClient.current) {
+        stompClient.current.deactivate();
+        console.log("WebSocket disconnected");
+      }
+    };
+  }, [topic, userId, nickname]);
 
   // Fetch chat history
   const fetchMessages = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:8080/api/messages/${topic}`,
+        `https://mindmate-ye33.onrender.com/api/messages/${topic}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -122,6 +149,9 @@ const GroupChatScreen = () => {
 
       const messages = await response.json();
       setChatMessages(messages);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 100);
     } catch (err) {
       console.error(err.message);
       Alert.alert("Error", "Failed to load chat history");
@@ -146,7 +176,10 @@ const GroupChatScreen = () => {
         body: JSON.stringify(message),
       });
       setMessageText("");
-      setInputHeight(50); // Reset input height after sending
+      setInputHeight(50);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } else {
       Alert.alert("Error", "Not connected to chat server");
     }
@@ -180,7 +213,7 @@ const GroupChatScreen = () => {
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:8080/api/report?reporter=${nickname}&reported=${reportedNickname}&room=${topic}`,
+        `https://mindmate-ye33.onrender.com/api/report?reporter=${nickname}&reported=${reportedNickname}&room=${topic}`,
         {
           method: "POST",
           headers: {
@@ -220,23 +253,19 @@ const GroupChatScreen = () => {
   // Handle input content size changes for expanding text input
   const handleContentSizeChange = (event) => {
     const height = event.nativeEvent.contentSize.height;
-    // Set min height 50, max height 150
     setInputHeight(Math.max(50, Math.min(height, 150)));
   };
 
   const renderMessage = ({ item }) => {
-    // Calculate bubble width based on message content
     const MIN_BUBBLE_WIDTH = DEVICE_WIDTH * 0.25;
     const MAX_BUBBLE_WIDTH = DEVICE_WIDTH * 0.8;
     
-    // Estimate width based on character count
     const charCount = item.content.length;
     let bubbleWidth = Math.min(
       Math.max(MIN_BUBBLE_WIDTH, charCount * 8), 
       MAX_BUBBLE_WIDTH
     );
     
-    // Add extra space for timestamps and sender name
     if (item.senderNickname !== nickname) {
       bubbleWidth = Math.max(bubbleWidth, MIN_BUBBLE_WIDTH * 1.2);
     }
@@ -244,7 +273,6 @@ const GroupChatScreen = () => {
     return (
       <TouchableOpacity
         onPress={() => {
-          // Only trigger report for other users' messages
           if (item.senderNickname !== nickname) {
             handleReportUser(item.senderNickname);
           }
@@ -287,90 +315,125 @@ const GroupChatScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
-      
-      {/* Header with back button */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <Feather name="chevron-left" size={28} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.roomTitle}>{formatRoomTitle(topic)}</Text>
-          <Text style={styles.userInfo}>Your nickname: {nickname}</Text>
-        </View>
-        <View style={styles.headerRightPlaceholder} />
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <Ionicons name="chatbubbles" size={48} color="#6C63FF" />
-          <Text style={styles.loadingText}>Loading messages...</Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={chatMessages}
-          keyExtractor={(item, index) =>
-            item.id?.toString() || index.toString()
-          }
-          renderItem={renderMessage}
-          contentContainerStyle={styles.chatContainer}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="chatbox-outline" size={64} color="#d3d3d3" />
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptySubText}>Be the first to say something!</Text>
-            </View>
-          }
-        />
-      )}
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.inputContainer}
-        keyboardVerticalOffset={Platform.select({ ios: 80, android: 0 })}
-      >
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={[styles.textInput, { height: inputHeight }]}
-            placeholder="Type a message..."
-            placeholderTextColor="#999"
-            value={messageText}
-            onChangeText={setMessageText}
-            onContentSizeChange={handleContentSizeChange}
-            multiline
-          />
-          <TouchableOpacity 
-            onPress={sendMessage} 
-            style={[styles.sendButton, !messageText.trim() && styles.disabledButton]}
-            disabled={!messageText.trim()}
-          >
-            <Ionicons 
-              name="send" 
-              size={24} 
-              color={messageText.trim() ? "#fff" : "#aaa"} 
-            />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="#f8f9fa" 
+        translucent={Platform.OS === 'android'}
+      />
+      <View style={styles.container}>
+        <View style={[
+          styles.header,
+          Platform.OS === 'android' && styles.androidHeader
+        ]}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+            <Feather name="chevron-left" size={28} color="#333" />
           </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.roomTitle}>{formatRoomTitle(topic)}</Text>
+            <Text style={styles.userInfo}>Your nickname: {nickname}</Text>
+          </View>
+          <View style={styles.headerRightPlaceholder} />
         </View>
-      </KeyboardAvoidingView>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <Ionicons name="chatbubbles" size={48} color="#6C63FF" />
+            <Text style={styles.loadingText}>Loading messages...</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={chatMessages}
+            keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+            renderItem={renderMessage}
+            contentContainerStyle={[
+              styles.chatContainer,
+              { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 100 : 100 }
+            ]}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="chatbox-outline" size={64} color="#d3d3d3" />
+                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptySubText}>Be the first to say something!</Text>
+              </View>
+            }
+          />
+        )}
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+          keyboardVerticalOffset={Platform.select({ 
+            ios: 80, 
+            android: StatusBar.currentHeight + 20 
+          })}
+        >
+          <View style={[
+            styles.inputContainer,
+            { marginBottom: keyboardHeight > 0 ? keyboardHeight - (Platform.OS === 'android' ? 20 : 0) : 0 }
+          ]}>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.textInput, { height: inputHeight }]}
+                placeholder="Type a message..."
+                placeholderTextColor="#999"
+                value={messageText}
+                onChangeText={setMessageText}
+                onContentSizeChange={handleContentSizeChange}
+                multiline
+                onFocus={() => {
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                  }, 100);
+                }}
+              />
+              <TouchableOpacity 
+                onPress={sendMessage} 
+                style={[styles.sendButton, !messageText.trim() && styles.disabledButton]}
+                disabled={!messageText.trim()}
+              >
+                <Ionicons 
+                  name="send" 
+                  size={24} 
+                  color={messageText.trim() ? "#fff" : "#aaa"} 
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
+  },
   container: { 
     flex: 1, 
-    backgroundColor: "#f8f9fa" 
+    backgroundColor: "#f8f9fa",
+    paddingTop: Platform.OS === 'ios' ? 0 : 8
+  },
+  keyboardAvoidingView: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  androidHeader: {
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 0 : 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -406,7 +469,6 @@ const styles = StyleSheet.create({
   chatContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 80,
   },
   messageBubble: {
     borderRadius: 18,
@@ -455,10 +517,6 @@ const styles = StyleSheet.create({
     color: "rgba(0,0,0,0.5)",
   },
   inputContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,

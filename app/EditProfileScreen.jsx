@@ -5,18 +5,20 @@ import React, { useContext, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { AuthContext } from "../context/AuthContext";
 
 // API Configuration
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api",
+  BASE_URL: "https://mindmate-ye33.onrender.com/api", 
   ENDPOINTS: {
     UPDATE_PROFILE: "/user/update-profile",
   },
@@ -26,7 +28,7 @@ const API_CONFIG = {
 const EditProfileScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { updateUser, token } = useContext(AuthContext);
+  const { updateUser, token ,refreshUserFromStorage } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({
     email: params.email || "",
@@ -107,6 +109,7 @@ const EditProfileScreen = () => {
         });
 
         if (success) {
+          await refreshUserFromStorage();
           Alert.alert(
             "Success", 
             "Profile updated successfully",
@@ -137,101 +140,104 @@ const EditProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header with Back Button and Save Button */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          disabled={isSaving}
-        >
-          <Feather name="chevron-left" style={styles.backButtonText} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <SafeAreaView style={styles.container}>
+        {/* Header with Back Button and Save Button */}
+        <View style={styles.headerContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={isSaving}
+          >
+            <Feather name="chevron-left" style={styles.backButtonText} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <TouchableOpacity
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.profileContainer}>
-        {/* Editable Profile Information */}
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Email*</Text>
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              value={formData.email}
-              onChangeText={(text) => {
-                setFormData({ ...formData, email: text });
-                setErrors({ ...errors, email: "" });
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={false}
-            />
-            {errors.email ? (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            ) : null}
-          </View>
+        <View style={styles.profileContainer}>
+          {/* Editable Profile Information */}
+          <View style={styles.infoContainer}>
+            <View style={styles.infoItem}>
+              <Text style={styles.label}>Email*</Text>
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                value={formData.email}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, email: text });
+                  setErrors({ ...errors, email: "" });
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={false}
+              />
+              {errors.email ? (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              ) : null}
+            </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Username*</Text>
-            <TextInput
-              style={[styles.input, errors.userName && styles.inputError]}
-              value={formData.userName}
-              onChangeText={(text) => {
-                setFormData({ ...formData, userName: text });
-                setErrors({ ...errors, userName: "" });
-              }}
-              autoCapitalize="none"
-            />
-            {errors.userName ? (
-              <Text style={styles.errorText}>{errors.userName}</Text>
-            ) : null}
-          </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.label}>Username*</Text>
+              <TextInput
+                style={[styles.input, errors.userName && styles.inputError]}
+                value={formData.userName}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, userName: text });
+                  setErrors({ ...errors, userName: "" });
+                }}
+                autoCapitalize="none"
+              />
+              {errors.userName ? (
+                <Text style={styles.errorText}>{errors.userName}</Text>
+              ) : null}
+            </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Full Name*</Text>
-            <TextInput
-              style={[styles.input, errors.name && styles.inputError]}
-              value={formData.name}
-              onChangeText={(text) => {
-                setFormData({ ...formData, name: text });
-                setErrors({ ...errors, name: "" });
-              }}
-            />
-            {errors.name ? (
-              <Text style={styles.errorText}>{errors.name}</Text>
-            ) : null}
-          </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.label}>Full Name*</Text>
+              <TextInput
+                style={[styles.input, errors.name && styles.inputError]}
+                value={formData.name}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, name: text });
+                  setErrors({ ...errors, name: "" });
+                }}
+              />
+              {errors.name ? (
+                <Text style={styles.errorText}>{errors.name}</Text>
+              ) : null}
+            </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Nickname</Text>
-            <TextInput
-              style={[styles.input, styles.nicknameInput]}
-              value={formData.nickName}
-              onChangeText={(text) =>
-                setFormData({ ...formData, nickName: text })
-              }
-            />
+            <View style={styles.infoItem}>
+              <Text style={styles.label}>Nickname</Text>
+              <TextInput
+                style={[styles.input, styles.nicknameInput]}
+                value={formData.nickName}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, nickName: text })
+                }
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 };
 
@@ -239,6 +245,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   headerContainer: {
     flexDirection: "row",
@@ -248,6 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+    marginTop: Platform.OS === 'android' ? 10 : 0,
   },
   backButton: {
     padding: 5,

@@ -15,7 +15,7 @@ import {
 
 // Configurable constants
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api/user", // Can be easily changed later
+  BASE_URL: "https://mindmate-ye33.onrender.com/api/user", // Can be easily changed later
   ENDPOINTS: {
     AI_SUGGEST: "/ai-suggest",
   },
@@ -78,7 +78,10 @@ const SelfCareScreen = () => {
             }
           }
         } catch (cacheError) {
-          console.warn("Cache read failed, proceeding with API fetch:", cacheError);
+          console.warn(
+            "Cache read failed, proceeding with API fetch:",
+            cacheError
+          );
         }
       }
 
@@ -153,6 +156,8 @@ const SelfCareScreen = () => {
 
   const onRefresh = () => {
     setFromDashboard(false);
+    setSuggestion(null);
+    setLoading(true);
     fetchSuggestion();
   };
 
@@ -210,7 +215,7 @@ const SelfCareScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity onPress={() => router.replace("/home")} style={styles.backButton}>
         <Feather name="chevron-left" size={24} color="#2D3748" />
       </TouchableOpacity>
 
@@ -261,7 +266,8 @@ const SelfCareScreen = () => {
               <Text style={styles.benefitText}>Why this helps:</Text>
             </View>
             <Text style={styles.benefitDescription}>
-              {firstSuggestion.reason || "This activity can help improve your wellbeing."}
+              {firstSuggestion.reason ||
+                "This activity can help improve your wellbeing."}
             </Text>
           </View>
         ) : (

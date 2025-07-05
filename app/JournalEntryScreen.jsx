@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,10 +16,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // API Configuration
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api",
+  BASE_URL: "https://mindmate-ye33.onrender.com/api",
   ENDPOINTS: {
     JOURNAL: "/journal",
   },
@@ -31,6 +31,7 @@ const JournalEntryScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { id, heading, body, createdAt, editMode } = params;
+  const insets = useSafeAreaInsets();
 
   // State management
   const [isEditing, setIsEditing] = useState(editMode === "true");
@@ -92,7 +93,7 @@ const JournalEntryScreen = () => {
           text: "OK",
           onPress: () => {
             router.replace({
-              pathname: "/journal/[id]",
+              pathname: "/PastEntriesScreen",
               params: {
                 id,
                 heading: editedHeading,
@@ -110,10 +111,8 @@ const JournalEntryScreen = () => {
       let errorMessage = "Failed to update journal";
       
       if (error.response) {
-        // Server responded with error status
         errorMessage = error.response.data?.message || errorMessage;
       } else if (error.request) {
-        // Request was made but no response received
         errorMessage = "Network error. Please check your connection.";
       } else if (error.message.includes("timeout")) {
         errorMessage = "Request timed out. Please try again.";
@@ -195,7 +194,7 @@ const JournalEntryScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient colors={["#f0f4ff", "#e6e9ff"]} style={styles.background}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -203,7 +202,10 @@ const JournalEntryScreen = () => {
           keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
         >
           <ScrollView
-            contentContainerStyle={styles.scrollContainer}
+            contentContainerStyle={[
+              styles.scrollContainer,
+              { paddingBottom: insets.bottom + 20 }
+            ]}
             keyboardShouldPersistTaps="handled"
           >
             {/* Header */}
@@ -337,12 +339,12 @@ const JournalEntryScreen = () => {
           </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: "#fff",
   },
@@ -350,8 +352,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   header: {
     flexDirection: "row",

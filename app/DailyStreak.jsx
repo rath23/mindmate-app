@@ -6,19 +6,21 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import Toast from "react-native-toast-message";
 import Icon from "react-native-vector-icons/MaterialIcons";
 
 // Configuration constants
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api", // Store in variable for easy modification
+  BASE_URL: "https://mindmate-ye33.onrender.com/api",
   ENDPOINTS: {
     PROGRESS: "/user/progress",
     TASK_COMPLETED: "/user/task-completed",
@@ -26,7 +28,7 @@ const API_CONFIG = {
   TIMEOUT: 10000, // 10 seconds timeout
 };
 
-const { width: screenWidth } = Dimensions.get("window");
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const DailyStreak = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -202,164 +204,178 @@ const DailyStreak = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text>Loading your progress...</Text>
-        </View>
+      <SafeAreaView style={[styles.container, styles.loadingContainer]}>
+        <Text>Loading your progress...</Text>
       </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Icon name="error-outline" size={48} color="#E53E3E" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={fetchProgress}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={[styles.container, styles.errorContainer]}>
+        <Icon name="error-outline" size={48} color="#E53E3E" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={fetchProgress}
+        >
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={["#f7f9fc", "#eef2f7"]}
-        style={styles.background}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header with Back Button */}
-          <View style={styles.header}>
-            <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => router.back()}>
-                <Icon name="chevron-left" size={32} color="#2D3748" />
-              </TouchableOpacity>
-              <Text style={styles.title}>Daily Check-In Streak</Text>
-              <View style={{ width: 32 }} />
-            </View>
-            <LinearGradient
-              colors={["#FF9E44", "#FF7A00"]}
-              style={styles.streakContainer}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.streakText}>{streak} days</Text>
-              <View style={styles.fireIcon}>
-                <Icon name="whatshot" size={24} color="#FFF" />
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#f7f9fc" />
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={["#f7f9fc", "#eef2f7"]}
+          style={styles.background}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Header with Back Button */}
+            <View style={styles.header}>
+              <View style={styles.headerRow}>
+                <TouchableOpacity onPress={() => router.back()}>
+                  <Icon name="chevron-left" size={32} color="#2D3748" />
+                </TouchableOpacity>
+                <Text style={styles.title}>Daily Check-In Streak</Text>
+                <View style={{ width: 32 }} />
               </View>
-            </LinearGradient>
-          </View>
-
-          {/* XP Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Earned Wellness XP</Text>
-            <Animated.View
-              style={[styles.xpContainer, { transform: [{ scale: pulseAnim }] }]}
-            >
-              <Text style={styles.xpText}>{xp}</Text>
-              <Text style={styles.xpLabel}>XP</Text>
-            </Animated.View>
-            <View style={styles.progressBar}>
               <LinearGradient
-                colors={["#5A8EFF", "#3A5BFF"]}
-                style={[styles.progressFill, { width: "75%" }]}
+                colors={["#FF9E44", "#FF7A00"]}
+                style={styles.streakContainer}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-              />
-            </View>
-          </View>
-
-          {/* Badges */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Unlockable Badges</Text>
-            {badges.length === 0 ? (
-              <Text style={styles.emptyMessage}>No badges available</Text>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.badgesContainer}
               >
-                {badges.map((badge, index) => (
-                  <LinearGradient
-                    key={index}
-                    colors={badge.unlocked ? badge.color : ["#CBD5E0", "#A0AEC0"]}
-                    style={[styles.badge, !badge.unlocked && styles.lockedBadge]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Icon
-                      name={getBadgeIcon(badge.unlocked)}
-                      size={28}
-                      color={getIconColor(badge.unlocked)}
-                    />
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        !badge.unlocked && styles.lockedBadgeText,
-                      ]}
-                    >
-                      {badge.name}
-                    </Text>
-                  </LinearGradient>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Daily Tasks (Last Section) */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Today's Tasks</Text>
-            {actionableTasks.length === 0 ? (
-              <Text style={styles.emptyMessage}>No tasks available today</Text>
-            ) : (
-              actionableTasks.map((task) => (
-                <View key={task.id} style={styles.taskItem}>
-                  <Text style={styles.taskText}>{task.taskText}</Text>
-                  {task.completed ? (
-                    <View style={styles.completedBadge}>
-                      <Icon name="check" size={20} color="#FFF" />
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.doneButton}
-                      onPress={() => handleTaskComplete(task.id)}
-                    >
-                      <Text style={styles.doneButtonText}>Done</Text>
-                    </TouchableOpacity>
-                  )}
+                <Text style={styles.streakText}>{streak} days</Text>
+                <View style={styles.fireIcon}>
+                  <Icon name="whatshot" size={24} color="#FFF" />
                 </View>
-              ))
-            )}
-          </View>
-        </ScrollView>
-      </LinearGradient>
-      <Toast />
-    </SafeAreaView>
+              </LinearGradient>
+            </View>
+
+            {/* XP Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Earned Wellness XP</Text>
+              <Animated.View
+                style={[styles.xpContainer, { transform: [{ scale: pulseAnim }] }]}
+              >
+                <Text style={styles.xpText}>{xp}</Text>
+                <Text style={styles.xpLabel}>XP</Text>
+              </Animated.View>
+              <View style={styles.progressBar}>
+                <LinearGradient
+                  colors={["#5A8EFF", "#3A5BFF"]}
+                  style={[styles.progressFill, { width: `${Math.min(100, (xp % 1000) / 10)}%` }]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
+              </View>
+            </View>
+
+            {/* Badges */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Unlockable Badges</Text>
+              {badges.length === 0 ? (
+                <Text style={styles.emptyMessage}>No badges available</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.badgesContainer}
+                >
+                  {badges.map((badge, index) => (
+                    <LinearGradient
+                      key={index}
+                      colors={badge.unlocked ? badge.color : ["#CBD5E0", "#A0AEC0"]}
+                      style={[styles.badge, !badge.unlocked && styles.lockedBadge]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Icon
+                        name={getBadgeIcon(badge.unlocked)}
+                        size={28}
+                        color={getIconColor(badge.unlocked)}
+                      />
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          !badge.unlocked && styles.lockedBadgeText,
+                        ]}
+                      >
+                        {badge.name}
+                      </Text>
+                    </LinearGradient>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Daily Tasks */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Today's Tasks</Text>
+              {actionableTasks.length === 0 ? (
+                <Text style={styles.emptyMessage}>No tasks available today</Text>
+              ) : (
+                actionableTasks.map((task) => (
+                  <View key={task.id} style={styles.taskItem}>
+                    <Text style={styles.taskText}>{task.taskText}</Text>
+                    {task.completed ? (
+                      <View style={styles.completedBadge}>
+                        <Icon name="check" size={20} color="#FFF" />
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.doneButton}
+                        onPress={() => handleTaskComplete(task.id)}
+                      >
+                        <Text style={styles.doneButtonText}>Done</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
+          </ScrollView>
+        </LinearGradient>
+        <Toast />
+      </SafeAreaView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  background: { flex: 1, padding: 20 },
+  container: { 
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
+  },
+  background: { 
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20
+  },
+  scrollContent: {
+    paddingBottom: 40
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#f7f9fc"
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    backgroundColor: "#f7f9fc"
   },
   errorText: {
     fontSize: 16,
@@ -382,7 +398,10 @@ const styles = StyleSheet.create({
     color: "#718096",
     marginVertical: 10,
   },
-  header: { marginBottom: 25, alignItems: "center" },
+  header: { 
+    marginBottom: 25, 
+    alignItems: "center" 
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",

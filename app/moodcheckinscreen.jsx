@@ -2,10 +2,10 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -20,7 +20,7 @@ import {
 
 // API Configuration
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api",
+  BASE_URL: "https://mindmate-ye33.onrender.com/api",
   ENDPOINTS: {
     MOOD: "/mood",
   },
@@ -72,25 +72,32 @@ const MoodCheckInScreen = () => {
     checkPreviousSubmission();
   }, []);
 
-  const checkPreviousSubmission = async () => {
-    try {
-      const lastSubmission = await AsyncStorage.getItem("lastMoodSubmission");
-      if (lastSubmission) {
-        const lastDate = new Date(lastSubmission);
-        const today = new Date();
-        if (
-          lastDate.getDate() === today.getDate() &&
-          lastDate.getMonth() === today.getMonth() &&
-          lastDate.getFullYear() === today.getFullYear()
-        ) {
-          setHasSubmittedToday(true);
-          setLastSubmissionTime(lastDate.toLocaleTimeString());
-        }
+const checkPreviousSubmission = async () => {
+  try {
+    const userJson = await AsyncStorage.getItem("user");
+    const user = JSON.parse(userJson);
+    const userId = user?.id;
+
+    if (!userId) return;
+
+    const lastSubmission = await AsyncStorage.getItem(`lastMoodSubmission_${userId}`);
+    if (lastSubmission) {
+      const lastDate = new Date(lastSubmission);
+      const today = new Date();
+      if (
+        lastDate.getDate() === today.getDate() &&
+        lastDate.getMonth() === today.getMonth() &&
+        lastDate.getFullYear() === today.getFullYear()
+      ) {
+        setHasSubmittedToday(true);
+        setLastSubmissionTime(lastDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       }
-    } catch (error) {
-      console.error("Error checking previous submission:", error);
     }
-  };
+  } catch (error) {
+    console.error("Error checking previous submission:", error);
+  }
+};
+
 
   const toggleTag = (tagName) => {
     setSelectedTags((prev) =>
@@ -108,11 +115,6 @@ const MoodCheckInScreen = () => {
     }
 
     if (hasSubmittedToday) {
-      Alert.alert(
-        "Already Submitted",
-        `You've already submitted your mood today at ${lastSubmissionTime}.`,
-        [{ text: "OK" }]
-      );
       return;
     }
 
@@ -127,7 +129,6 @@ const MoodCheckInScreen = () => {
   const submitMood = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
-      console.log("Submitting mood with token:", token);
       if (!token) {
         throw new Error("Authentication token not found");
       }
@@ -136,7 +137,6 @@ const MoodCheckInScreen = () => {
         mood: selectedMood,
         tags: selectedTags,
         note: note,
-        timestamp: new Date().toISOString(),
       };
 
       const controller = new AbortController();
@@ -172,20 +172,16 @@ const MoodCheckInScreen = () => {
           );
         }
 
-        Alert.alert("Success", "Your mood has been recorded!", [
-          {
-            text: "View Insights",
-            onPress: () => router.replace("/mood-insights"),
-          },
-          {
-            text: "Continue",
-            onPress: () => router.replace("/selfcarescreen"),
-          },
-        ]);
 
-        // // Clear cached dashboard data
+        // Update UI state
+        setHasSubmittedToday(true);
+        setLastSubmissionTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+        // Clear cached dashboard data
         await SecureStore.deleteItemAsync("dashboardData");
         resetForm();
+        
+        router.replace("/selfcarescreen");
       } else {
         throw new Error(`Unexpected status: ${response.status}`);
       }
@@ -268,110 +264,112 @@ const MoodCheckInScreen = () => {
             </View>
           </View>
 
-          {hasSubmittedToday && (
-            <View style={styles.submissionNotice}>
-              <Ionicons name="checkmark-circle" size={20} color="#38a169" />
-              <Text style={styles.submissionNoticeText}>
-                You submitted your mood today at {lastSubmissionTime}
+          {hasSubmittedToday ? (
+            <View style={styles.submittedContainer}>
+              <View style={styles.submissionNotice}>
+                <Ionicons name="checkmark-circle" size={24} color="#38a169" />
+                <Text style={styles.submissionNoticeText}>
+                  You've already submitted your mood today at {lastSubmissionTime}
+                </Text>
+              </View>
+              <Text style={styles.submittedMessage}>
+                Come back tomorrow for your next check-in!
               </Text>
             </View>
-          )}
+          ) : (
+            <>
+              {/* Mood Selection */}
+              <Text style={styles.question}>How are you feeling today?</Text>
 
-          {/* Mood Selection */}
-          <Text style={styles.question}>How are you feeling today?</Text>
+              <View style={styles.emojiContainer}>
+                {moodOptions.map((moodOption) => (
+                  <TouchableOpacity
+                    key={moodOption.value}
+                    style={[
+                      styles.emojiButton,
+                      selectedMood === moodOption.value && styles.selectedEmoji,
+                    ]}
+                    onPress={() => {
+                      setSelectedMood(moodOption.value);
+                      setShowDisabledMessage(false);
+                    }}
+                  >
+                    <Text style={styles.emoji}>{moodOption.emoji}</Text>
+                    <Text style={styles.emojiDescription}>
+                      {moodOption.description}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-          <View style={styles.emojiContainer}>
-            {moodOptions.map((moodOption) => (
+              {/* Tags Section */}
+              <Text style={styles.sectionTitle}>
+                What best describes your mood? (Select up to 3)
+              </Text>
+
+              <View style={styles.tagsContainer}>
+                {tagOptions.map((tag) => (
+                  <TouchableOpacity
+                    key={tag.name}
+                    style={getTagStyle(tag.name)}
+                    onPress={() => toggleTag(tag.name)}
+                    disabled={
+                      selectedTags.length >= 3 && !selectedTags.includes(tag.name)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.tagText,
+                        selectedTags.includes(tag.name) && styles.selectedTagText,
+                      ]}
+                    >
+                      {tag.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Note Section */}
+              <Text style={styles.noteLabel}>
+                Optional: What's influencing your mood today?
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Type your thoughts here..."
+                placeholderTextColor="#a0aec0"
+                multiline
+                numberOfLines={4}
+                value={note}
+                onChangeText={setNote}
+                textAlignVertical="top"
+              />
+
+              {/* Submit Button */}
               <TouchableOpacity
-                key={moodOption.value}
                 style={[
-                  styles.emojiButton,
-                  selectedMood === moodOption.value && styles.selectedEmoji,
+                  styles.submitButton,
+                  selectedMood === null && styles.disabledButton,
                 ]}
-                onPress={() => {
-                  setSelectedMood(moodOption.value);
-                  setShowDisabledMessage(false);
-                }}
+                onPress={handleSubmit}
+                disabled={selectedMood === null || isSubmitting}
               >
-                <Text style={styles.emoji}>{moodOption.emoji}</Text>
-                <Text style={styles.emojiDescription}>
-                  {moodOption.description}
-                </Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.submitText}>Submit Mood</Text>
+                )}
               </TouchableOpacity>
-            ))}
-          </View>
 
-          {/* Tags Section */}
-          <Text style={styles.sectionTitle}>
-            What best describes your mood? (Select up to 3)
-          </Text>
-
-          <View style={styles.tagsContainer}>
-            {tagOptions.map((tag) => (
-              <TouchableOpacity
-                key={tag.name}
-                style={getTagStyle(tag.name)}
-                onPress={() => toggleTag(tag.name)}
-                disabled={
-                  selectedTags.length >= 3 && !selectedTags.includes(tag.name)
-                }
-              >
-                <Text
-                  style={[
-                    styles.tagText,
-                    selectedTags.includes(tag.name) && styles.selectedTagText,
-                  ]}
-                >
-                  {tag.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Note Section */}
-          <Text style={styles.noteLabel}>
-            Optional: What's influencing your mood today?
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Type your thoughts here..."
-            placeholderTextColor="#a0aec0"
-            multiline
-            numberOfLines={4}
-            value={note}
-            onChangeText={setNote}
-            textAlignVertical="top"
-          />
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (selectedMood === null || hasSubmittedToday) &&
-                styles.disabledButton,
-            ]}
-            onPress={handleSubmit}
-            disabled={
-              selectedMood === null || hasSubmittedToday || isSubmitting
-            }
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.submitText}>
-                {hasSubmittedToday ? "Already Submitted" : "Submit Mood"}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Validation Message */}
-          {showDisabledMessage && (
-            <View style={styles.messageContainer}>
-              <Ionicons name="information-circle" size={20} color="#e53e3e" />
-              <Text style={styles.disabledText}>
-                Please select a mood to submit your check-in
-              </Text>
-            </View>
+              {/* Validation Message */}
+              {showDisabledMessage && (
+                <View style={styles.messageContainer}>
+                  <Ionicons name="information-circle" size={20} color="#e53e3e" />
+                  <Text style={styles.disabledText}>
+                    Please select a mood to submit your check-in
+                  </Text>
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -415,20 +413,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#718096",
   },
+  submittedContainer: {
+    marginBottom: 32,
+  },
   submissionNotice: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f0fff4",
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#c6f6d5",
-    marginBottom: 20,
+    marginBottom: 12,
   },
   submissionNoticeText: {
     color: "#38a169",
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 10,
+  },
+  submittedMessage: {
+    fontSize: 16,
+    color: "#4a5568",
+    textAlign: "center",
+    paddingHorizontal: 24,
   },
   question: {
     fontSize: 20,
@@ -460,6 +468,9 @@ const styles = StyleSheet.create({
     borderColor: "#90cdf4",
     borderWidth: 2,
     transform: [{ scale: 1.1 }],
+  },
+  disabledEmoji: {
+    opacity: 0.5,
   },
   emoji: {
     fontSize: 32,
@@ -510,6 +521,10 @@ const styles = StyleSheet.create({
     borderColor: "#f56565",
     backgroundColor: "#fed7d7",
   },
+  disabledTag: {
+    opacity: 0.5,
+    backgroundColor: "#edf2f7",
+  },
   tagText: {
     fontSize: 14,
     color: "#4a5568",
@@ -518,6 +533,9 @@ const styles = StyleSheet.create({
   },
   selectedTagText: {
     fontWeight: "600",
+  },
+  disabledTagText: {
+    color: "#a0aec0",
   },
   noteLabel: {
     fontSize: 16,
@@ -540,6 +558,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+  },
+  disabledInput: {
+    backgroundColor: "#f8fafc",
+    color: "#a0aec0",
   },
   submitButton: {
     backgroundColor: "#4299e1",

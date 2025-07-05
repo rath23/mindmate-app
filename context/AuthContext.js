@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import jwtDecode from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import React, { createContext, useEffect, useState } from 'react';
 
 export const AuthContext = createContext();
@@ -7,11 +7,12 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = loading
   const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const [user, setUser ] = useState(null);
+
 
   const fetchUserInfo = async (authToken) => {
   try {
-    const res = await fetch('http://localhost:8080/api/user/me', {
+    const res = await fetch('https://mindmate-ye33.onrender.com/api/user/me', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -54,7 +55,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const decoded = jwtDecode(storedToken);
+      const decoded = jwt_decode(storedToken);
       const currentTime = Date.now() / 1000; // in seconds
 
       if (decoded.exp < currentTime) {
@@ -100,7 +101,7 @@ export const AuthProvider = ({ children }) => {
  const refreshToken = async () => {
   try {
     const storedToken = await AsyncStorage.getItem('token'); // 👈 get current token
-    const response = await fetch('http://localhost:8080/auth/user/refresh', {
+    const response = await fetch('https://mindmate-ye33.onrender.com/auth/user/refresh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -118,13 +119,26 @@ export const AuthProvider = ({ children }) => {
   }
 };
 
+const refreshUserFromStorage = async () => {
+  try {
+    const storedUser = await AsyncStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser)); 
+    }
+  } catch (error) {
+    console.error("Failed to refresh user from storage", error);
+  }
+};
+
+
+
 
   useEffect(() => {
-    checkTokenValid(); // ✅ check token on app start
+    checkTokenValid(); 
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout, token, user , updateUser }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, token, user , updateUser ,refreshUserFromStorage}}>
       {children}
     </AuthContext.Provider>
   );

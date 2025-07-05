@@ -22,7 +22,7 @@ import {
 
 // API Configuration
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080/api",
+  BASE_URL: "https://mindmate-ye33.onrender.com/api",
   ENDPOINTS: {
     JOURNAL: "/journal",
   },
@@ -65,59 +65,130 @@ const JournalNotesScreen = () => {
     return true;
   };
 
-  const handleSave = async () => {
-    if (!validateForm()) return;
+  // const handleSave = async () => {
+  //   if (!validateForm()) return;
 
-    setIsSaving(true);
-    try {
-      const token = await getAuthToken();
-      const payload = { heading: prompt, body: note };
+  //   setIsSaving(true);
+  //   try {
+  //     const token = await getAuthToken();
+  //     const payload = { heading: prompt, body: note };
 
-      const response = await axios({
-        method: "post",
-        url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}`,
-        data: payload,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        timeout: API_CONFIG.TIMEOUT,
-      });
+  //     const response = await axios({
+  //       method: "post",
+  //       url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}`,
+  //       data: payload,
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         "Content-Type": "application/json",
+  //       },
+  //       timeout: API_CONFIG.TIMEOUT,
+  //     });
 
-      if (response.status === 201) {
-        Alert.alert("Success", "Journal saved successfully!", [
-          {
-            text: "OK",
-            onPress: () => {
-              router.replace("/PastEntriesScreen");
-              setIsEditing(false);
-            },
-          },
-        ]);
-      }
-    } catch (error) {
-      console.error("Save error:", error);
-      let errorMessage = "Failed to save journal entry";
+  //     if (response.status === 201) {
+  //       Alert.alert("Success", "Journal saved successfully!", [
+  //         {
+  //           text: "OK",
+  //           onPress: () => {
+  //             router.replace("/PastEntriesScreen");
+  //             setIsEditing(false);
+  //           },
+  //         },
+  //       ]);
+  //     }
+  //   } catch (error) {
+  //     console.error("Save error:", error);
+  //     let errorMessage = "Failed to save journal entry";
       
-      if (error.response) {
-        if (error.response.status === 401) {
-          errorMessage = "Session expired. Please login again.";
-          await AsyncStorage.removeItem("token");
-          navigation.navigate("Login");
-        } else if (error.response.data?.message) {
-          errorMessage = error.response.data.message;
-        }
-      } else if (error.request) {
-        errorMessage = "Network error. Please check your connection.";
-      } else if (error.message.includes("timeout")) {
-        errorMessage = "Request timed out. Please try again.";
-      }
+  //     if (error.response) {
+  //       if (error.response.status === 401) {
+  //         errorMessage = "Session expired. Please login again.";
+  //         await AsyncStorage.removeItem("token");
+  //         navigation.navigate("Login");
+  //       } else if (error.response.data?.message) {
+  //         errorMessage = error.response.data.message;
+  //       }
+  //     } else if (error.request) {
+  //       errorMessage = "Network error. Please check your connection.";
+  //     } else if (error.message.includes("timeout")) {
+  //       errorMessage = "Request timed out. Please try again.";
+  //     }
 
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setIsSaving(false);
+  //     Alert.alert("Error", errorMessage);
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
+
+const handleSave = async () => {
+  console.log("Save button pressed");
+
+  if (!validateForm()) {
+    console.log("Validation failed");
+    return;
+  }
+
+  setIsSaving(true);
+  try {
+    const token = await getAuthToken();
+    console.log("Token retrieved:", token);
+
+    const payload = { heading: prompt, body: note };
+    console.log("Payload:", payload);
+
+    const response = await axios({
+      method: "post",
+      url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.JOURNAL}`,
+      data: payload,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      timeout: API_CONFIG.TIMEOUT,
+    });
+
+    console.log("Response status:", response.status);
+    console.log("Response data:", response.data);
+
+    if (response.status === 201 || response.status === 200) {
+      Alert.alert("Success", "Journal saved successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace("/PastEntriesScreen");
+            setIsEditing(false);
+          },
+        },
+      ]);
+    } else {
+      Alert.alert("Unexpected Response", `Status: ${response.status}`);
     }
-  };
+  } catch (error) {
+    console.error("Save error:", error);
+
+    let errorMessage = "Failed to save journal entry";
+
+    if (error.response) {
+      console.log("Error response:", error.response);
+      if (error.response.status === 401) {
+        errorMessage = "Session expired. Please login again.";
+        await AsyncStorage.removeItem("token");
+        navigation.navigate("Login");
+      } else if (error.response.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+    } else if (error.request) {
+      console.log("No response from server:", error.request);
+      errorMessage = "Network error. Please check your connection.";
+    } else if (error.message.includes("timeout")) {
+      errorMessage = "Request timed out. Please try again.";
+    }
+
+    Alert.alert("Error", errorMessage);
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   const handleDelete = () => {
     Alert.alert(

@@ -18,7 +18,7 @@ import {
 } from "react-native";
 
 const API_CONFIG = {
-  BASE_URL: "http://localhost:8080",
+  BASE_URL: "https://mindmate-ye33.onrender.com",
   ENDPOINTS: {
     REGISTER: "/auth/user/register",
   },
@@ -157,16 +157,61 @@ const MindMateRegister = () => {
   const renderForm = () => (
     <>
       <View style={styles.header}>
-        <Text style={styles.title}>MindMate</Text>
-        <Text style={styles.subtitle}>Create Your Account</Text>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Join MindMate today</Text>
       </View>
 
       <View style={styles.form}>
+        {/* Full Name */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={[styles.input, errors.name && styles.inputError]}
+            placeholder="Enter your full name"
+            placeholderTextColor="#94a3b8"
+            value={formData.name}
+            onChangeText={(text) => handleChange("name", text)}
+          />
+          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+        </View>
+
+        {/* Nickname */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Nickname</Text>
+          <TextInput
+            style={[styles.input, errors.nickName && styles.inputError]}
+            placeholder="Choose a nickname"
+            placeholderTextColor="#94a3b8"
+            value={formData.nickName}
+            onChangeText={(text) => handleChange("nickName", text)}
+          />
+          {errors.nickName && (
+            <Text style={styles.errorText}>{errors.nickName}</Text>
+          )}
+        </View>
+
+        {/* Email */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="your@email.com"
+            placeholderTextColor="#94a3b8"
+            value={formData.email}
+            onChangeText={(text) => handleChange("email", text)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+        </View>
+
         {/* Username */}
         <View style={styles.inputContainer}>
+          <Text style={styles.label}>Username</Text>
           <TextInput
             style={[styles.input, errors.username && styles.inputError]}
-            placeholder="Username"
+            placeholder="Choose a username"
+            placeholderTextColor="#94a3b8"
             value={formData.username}
             onChangeText={(text) => handleChange("username", text)}
             autoCapitalize="none"
@@ -176,25 +221,14 @@ const MindMateRegister = () => {
           )}
         </View>
 
-        {/* Email */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[styles.input, errors.email && styles.inputError]}
-            placeholder="Email"
-            value={formData.email}
-            onChangeText={(text) => handleChange("email", text)}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-        </View>
-
         {/* Password */}
         <View style={styles.inputContainer}>
+          <Text style={styles.label}>Password</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.input, errors.password && styles.inputError]}
-              placeholder="Password"
+              placeholder="Create a password"
+              placeholderTextColor="#94a3b8"
               value={formData.password}
               onChangeText={(text) => handleChange("password", text)}
               secureTextEntry={!showPassword}
@@ -213,30 +247,7 @@ const MindMateRegister = () => {
           {errors.password && (
             <Text style={styles.errorText}>{errors.password}</Text>
           )}
-        </View>
-
-        {/* Nickname */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[styles.input, errors.nickName && styles.inputError]}
-            placeholder="Nickname"
-            value={formData.nickName}
-            onChangeText={(text) => handleChange("nickName", text)}
-          />
-          {errors.nickName && (
-            <Text style={styles.errorText}>{errors.nickName}</Text>
-          )}
-        </View>
-
-        {/* Full Name */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[styles.input, errors.name && styles.inputError]}
-            placeholder="Full Name"
-            value={formData.name}
-            onChangeText={(text) => handleChange("name", text)}
-          />
-          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+          <Text style={styles.passwordHint}>Use at least 6 characters</Text>
         </View>
 
         {/* Register Button */}
@@ -248,16 +259,16 @@ const MindMateRegister = () => {
           {isLoading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Create Account</Text>
+            <Text style={styles.buttonText}>Sign Up</Text>
           )}
         </TouchableOpacity>
-      </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Already have an account?</Text>
-        <TouchableOpacity onPress={handleLoginRedirect}>
-          <Text style={styles.signInText}>Sign in</Text>
-        </TouchableOpacity>
+        <View style={styles.loginPrompt}>
+          <Text style={styles.loginText}>Already have an account? </Text>
+          <TouchableOpacity onPress={handleLoginRedirect}>
+            <Text style={styles.loginLink}>Log In</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </>
   );
@@ -294,34 +305,39 @@ const MindMateRegister = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f8fafc",
   },
   container: {
-    paddingHorizontal: 30,
-    paddingTop: 40,
-    paddingBottom: 50,
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    justifyContent: 'center',
   },
   header: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#4c6ef5",
-    letterSpacing: 1.2,
+    color: "#1e293b",
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 16,
     color: "#64748b",
-    marginTop: 8,
   },
   form: {
-    marginBottom: 30,
+    marginBottom: 20,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#334155',
+    marginBottom: 8,
   },
   input: {
     height: 50,
@@ -330,8 +346,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: "#f8fafc",
-    color: "#334155",
+    backgroundColor: "#ffffff",
+    color: "#1e293b",
   },
   inputError: {
     borderColor: "#ef4444",
@@ -339,7 +355,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#ef4444",
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 5,
     marginLeft: 5,
   },
@@ -349,44 +365,43 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     position: "absolute",
-    right: 15,
-    top: 15,
+    right: 16,
+  },
+  passwordHint: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 6,
+    marginLeft: 5,
   },
   registerButton: {
     height: 50,
     borderRadius: 10,
-    backgroundColor: "#4c6ef5",
+    backgroundColor: "#4f46e5",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#4c6ef5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-    marginTop: 10,
+    marginTop: 16,
   },
   disabledButton: {
     backgroundColor: "#94a3b8",
   },
   buttonText: {
     color: "white",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  footerText: {
-    color: "#64748b",
-    fontSize: 16,
-  },
-  signInText: {
-    color: "#4c6ef5",
     fontSize: 16,
     fontWeight: "600",
-    marginLeft: 5,
+  },
+  loginPrompt: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  loginText: {
+    color: '#64748b',
+    fontSize: 14,
+  },
+  loginLink: {
+    color: '#4f46e5',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

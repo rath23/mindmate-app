@@ -1,37 +1,54 @@
-# 🧠 MindMate - Mental Wellness App (React Native + Expo)
+# 🧠 MindMate - Mental Wellness Companion
 
 [![Expo](https://img.shields.io/badge/Expo-50%2B-blue)](https://expo.dev/)
 [![React Native](https://img.shields.io/badge/React%20Native-0.73%2B-61DAFB)](https://reactnative.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-3178C6)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-orange)](LICENSE)
 
-## 📱 App Preview
-| | | |
-|:-------------------------:|:-------------------------:|:-------------------------:|
-| ![Home Screen](https://i.imgur.com/home.png) | ![Mood Tracking](https://i.imgur.com/mood.png) | ![Journal](https://i.imgur.com/journal.png) |
+![MindMate Banner](https://i.imgur.com/sample-banner.png)
 
-## 🚀 Features
-- **AI-Powered Mood Analysis**
-- **Gemini-Generated Daily Tasks**
-- **Journaling with Rich Text**
-- **XP & Badge Gamification**
-- **Real-Time Moderated Chat**
-- **Cross-Platform** (iOS/Android/Web)
+## 📱 App Screens
 
-## 💻 Tech Stack
-- **Frontend**: React Native 0.73 + Expo 50
+### Core Features
+| | |
+|:-------------------------:|:-------------------------:|
+| ![Daily Check-In](Screenshot_20250706-230333.png) | ![Mood Analytics](Screenshot_20250706-230247.png) |
+| **Mood Tracking** | **Mood History** |
+| ![Journal](Screenshot_20250706-230318.png) | ![Self-Care](Screenshot_20250706-230446.png) |
+| **Journaling** | **AI Recommendations** |
+
+### Community & Progress
+| | |
+|:-------------------------:|:-------------------------:|
+| ![Community Chat](Screenshot_20250706-230424.png) | ![Streaks](Screenshot_20250706-230312.png) |
+| **Support Groups** | **Progress Tracking** |
+| ![Profile](Screenshot_20250706-230259.png) | ![Settings](Screenshot_2025-07-03_172813.png) |
+| **User Profile** | **Privacy Settings** |
+
+## ✨ Key Features
+- **Daily Mood Check-Ins** with emotional tagging
+- **Journaling System** with rich text entries
+- **AI-Powered Self-Care Recommendations**
+- **Wellness Gamification** (XP & Badges)
+- **Anonymous Support Communities**
+- **Comprehensive Mood Analytics**
+
+## 🛠 Tech Stack
+- **Framework**: React Native + Expo
 - **State Management**: Redux Toolkit
-- **Styling**: React Native Paper + Tailwind RN
+- **UI Kit**: React Native Paper
 - **Navigation**: React Navigation 6
-- **API Client**: Axios + React Query
+- **Charts**: React Native SVG Charts
+- **Authentication**: Firebase Auth
 
-## 📦 Installation
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- Android/iOS simulator or device
+
+### Installation
 ```bash
-# Clone repository
 git clone https://github.com/rath23/mindmate-app.git
-
-# Install dependencies
+cd mindmate-frontend
 npm install
-
-# Configure environment
-cp .env.example .env

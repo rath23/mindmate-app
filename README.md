@@ -11,7 +11,7 @@
 ### Core Features
 | | |
 |:-------------------------:|:-------------------------:|
-| ![Daily Check-In](Screenshot_20250706-230333.png) | ![Mood Analytics](Screenshot_20250706-230247.png) |
+| ![Daily Check-In](./assets/screenshots/moodcheckin.png) | ![Mood Analytics](Screenshot_20250706-230247.png) |
 | **Mood Tracking** | **Mood History** |
 | ![Journal](Screenshot_20250706-230318.png) | ![Self-Care](Screenshot_20250706-230446.png) |
 | **Journaling** | **AI Recommendations** |
@@ -19,7 +19,7 @@
 ### Community & Progress
 | | |
 |:-------------------------:|:-------------------------:|
-| ![Community Chat](.\assets\screenshots\chat-groups.png) |
+| ![Community Chat](./assets/screenshots/chat-groups.png) |
 | **Support Groups** | **Progress Tracking** |
 | ![Profile](Screenshot_20250706-230259.png) | ![Settings](Screenshot_2025-07-03_172813.png) |
 | **User Profile** | **Privacy Settings** |

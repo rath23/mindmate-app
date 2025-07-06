@@ -1,50 +1,37 @@
-# Welcome to your Expo app 👋
+# 🧠 MindMate - Mental Wellness App (React Native + Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[![Expo](https://img.shields.io/badge/Expo-50%2B-blue)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.73%2B-61DAFB)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-3178C6)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-orange)](LICENSE)
 
-## Get started
+## 📱 App Preview
+| | | |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+| ![Home Screen](https://i.imgur.com/home.png) | ![Mood Tracking](https://i.imgur.com/mood.png) | ![Journal](https://i.imgur.com/journal.png) |
 
-1. Install dependencies
+## 🚀 Features
+- **AI-Powered Mood Analysis**
+- **Gemini-Generated Daily Tasks**
+- **Journaling with Rich Text**
+- **XP & Badge Gamification**
+- **Real-Time Moderated Chat**
+- **Cross-Platform** (iOS/Android/Web)
 
-   ```bash
-   npm install
-   ```
+## 💻 Tech Stack
+- **Frontend**: React Native 0.73 + Expo 50
+- **State Management**: Redux Toolkit
+- **Styling**: React Native Paper + Tailwind RN
+- **Navigation**: React Navigation 6
+- **API Client**: Axios + React Query
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+## 📦 Installation
 ```bash
-npm run reset-project
-```
+# Clone repository
+git clone https://github.com/rath23/mindmate-app.git
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+# Install dependencies
+npm install
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# Configure environment
+cp .env.example .env

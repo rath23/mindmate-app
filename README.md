@@ -9,7 +9,7 @@
 ## 📱 App Screens
 
 ### Core Features
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0;">
     
   <div>
     <img src="./assets/screenshots/home.png" width="200" alt="Home">
@@ -34,7 +34,7 @@
 </div>
 
 ### Community & Progress
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0;">
   <div>
     <img src="./assets/screenshots/chat-groups.png" width="200" alt="Community Chat">
     <p><strong>Support Groups</strong></p>

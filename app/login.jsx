@@ -4,12 +4,14 @@ import { useContext, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View
 } from "react-native";
 import { AuthContext } from "../context/AuthContext";
@@ -56,7 +58,7 @@ const MindMateLogin = () => {
 
   const handleLogin = async () => {
     if (!validateForm()) return;
-    
+    Keyboard.dismiss();
     setIsLoading(true);
     
     try {
@@ -113,11 +115,10 @@ const MindMateLogin = () => {
   };
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        // behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
-        // keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
           enableOnAndroid={true}
     extraScrollHeight={20}
     keyboardShouldPersistTaps="handled"
@@ -212,6 +213,7 @@ const MindMateLogin = () => {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 };
 

@@ -88,7 +88,7 @@ const MindMateRegister = () => {
 
   const handleRegister = async () => {
     if (!validateForm()) return;
-
+    Keyboard.dismiss();
     setIsLoading(true);
     const payload = {
       email: formData.email,
@@ -274,6 +274,7 @@ const MindMateRegister = () => {
   );
 
   return (
+    
     <SafeAreaView style={styles.safeArea}>
       {Platform.OS === "web" ? (
         <ScrollView

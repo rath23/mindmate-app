@@ -16,12 +16,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View
 } from "react-native";
 import SockJS from "sockjs-client";
 import { AuthContext } from '../../context/AuthContext';
 
-const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = Dimensions.get('window');
+const { width: DEVICE_WIDTH } = Dimensions.get('window');
 
 const GroupChatScreen = () => {
   const { user } = useContext(AuthContext);
@@ -33,32 +34,8 @@ const GroupChatScreen = () => {
   const [userId, setUserId] = useState("");
   const [nickname, setNickname] = useState("");
   const [inputHeight, setInputHeight] = useState(50);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef(null);
   const stompClient = useRef(null);
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
 
   useEffect(() => {
     const initUser = async () => {
@@ -69,7 +46,7 @@ const GroupChatScreen = () => {
         storedNickname = `User${Math.floor(Math.random() * 10000)}`;
         await AsyncStorage.setItem("@nickname", storedNickname);
       }
-      
+
       setUserId(storedId);
       setNickname(storedNickname);
     };
@@ -77,7 +54,6 @@ const GroupChatScreen = () => {
     initUser();
   }, []);
 
-  // Connect to WebSocket
   useEffect(() => {
     const connectWebSocket = async () => {
       try {
@@ -130,7 +106,6 @@ const GroupChatScreen = () => {
     };
   }, [topic, userId, nickname]);
 
-  // Fetch chat history
   const fetchMessages = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -160,7 +135,6 @@ const GroupChatScreen = () => {
     }
   };
 
-  // Send message via WebSocket
   const sendMessage = () => {
     if (!messageText.trim()) return;
 
@@ -177,6 +151,7 @@ const GroupChatScreen = () => {
       });
       setMessageText("");
       setInputHeight(50);
+      Keyboard.dismiss();
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -185,7 +160,6 @@ const GroupChatScreen = () => {
     }
   };
 
-  // Report a user when tapping on their message
   const handleReportUser = (reportedNickname) => {
     if (reportedNickname === nickname) {
       Alert.alert("Cannot report yourself");
@@ -196,10 +170,7 @@ const GroupChatScreen = () => {
       "Report User",
       `Report ${reportedNickname} for inappropriate behavior?`,
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Report",
           onPress: () => submitReport(reportedNickname),
@@ -241,7 +212,6 @@ const GroupChatScreen = () => {
     router.back();
   };
 
-  // Format room title with proper capitalization
   const formatRoomTitle = (title) => {
     return title
       .replace(/-/g, " ")
@@ -250,7 +220,6 @@ const GroupChatScreen = () => {
       .join(" ");
   };
 
-  // Handle input content size changes for expanding text input
   const handleContentSizeChange = (event) => {
     const height = event.nativeEvent.contentSize.height;
     setInputHeight(Math.max(50, Math.min(height, 150)));
@@ -259,17 +228,14 @@ const GroupChatScreen = () => {
   const renderMessage = ({ item }) => {
     const MIN_BUBBLE_WIDTH = DEVICE_WIDTH * 0.25;
     const MAX_BUBBLE_WIDTH = DEVICE_WIDTH * 0.8;
-    
+
     const charCount = item.content.length;
-    let bubbleWidth = Math.min(
-      Math.max(MIN_BUBBLE_WIDTH, charCount * 8), 
-      MAX_BUBBLE_WIDTH
-    );
-    
+    let bubbleWidth = Math.min(Math.max(MIN_BUBBLE_WIDTH, charCount * 8), MAX_BUBBLE_WIDTH);
+
     if (item.senderNickname !== nickname) {
       bubbleWidth = Math.max(bubbleWidth, MIN_BUBBLE_WIDTH * 1.2);
     }
-    
+
     return (
       <TouchableOpacity
         onPress={() => {
@@ -281,29 +247,29 @@ const GroupChatScreen = () => {
         <View
           style={[
             styles.messageBubble,
-            item.senderNickname === nickname
-              ? styles.myMessage
-              : styles.otherMessage,
+            item.senderNickname === nickname ? styles.myMessage : styles.otherMessage,
             { maxWidth: MAX_BUBBLE_WIDTH, minWidth: MIN_BUBBLE_WIDTH, width: bubbleWidth }
           ]}
         >
           {item.senderNickname !== nickname && (
-            <Text style={styles.senderName}>
-              {item.senderNickname}
-            </Text>
+            <Text style={styles.senderName}>{item.senderNickname}</Text>
           )}
-          <Text style={[
-            styles.messageText,
-            item.senderNickname === nickname && styles.myMessageText
-          ]}>
+          <Text
+            style={[
+              styles.messageText,
+              item.senderNickname === nickname && styles.myMessageText
+            ]}
+          >
             {item.content}
           </Text>
-          <Text style={[
-            styles.timestamp,
-            item.senderNickname === nickname 
-              ? styles.myTimestamp 
-              : styles.otherTimestamp
-          ]}>
+          <Text
+            style={[
+              styles.timestamp,
+              item.senderNickname === nickname
+                ? styles.myTimestamp
+                : styles.otherTimestamp
+            ]}
+          >
             {new Date(item.timestamp).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -315,97 +281,88 @@ const GroupChatScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor="#f8f9fa" 
-        translucent={Platform.OS === 'android'}
-      />
-      <View style={styles.container}>
-        <View style={[
-          styles.header,
-          Platform.OS === 'android' && styles.androidHeader
-        ]}>
-          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-            <Feather name="chevron-left" size={28} color="#333" />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.roomTitle}>{formatRoomTitle(topic)}</Text>
-            <Text style={styles.userInfo}>Your nickname: {nickname}</Text>
-          </View>
-          <View style={styles.headerRightPlaceholder} />
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <Ionicons name="chatbubbles" size={48} color="#6C63FF" />
-            <Text style={styles.loadingText}>Loading messages...</Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={chatMessages}
-            keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-            renderItem={renderMessage}
-            contentContainerStyle={[
-              styles.chatContainer,
-              { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 100 : 100 }
-            ]}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="chatbox-outline" size={64} color="#d3d3d3" />
-                <Text style={styles.emptyText}>No messages yet</Text>
-                <Text style={styles.emptySubText}>Be the first to say something!</Text>
-              </View>
-            }
-          />
-        )}
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.select({ 
-            ios: 80, 
-            android: StatusBar.currentHeight + 20 
-          })}
-        >
-          <View style={[
-            styles.inputContainer,
-            { marginBottom: keyboardHeight > 0 ? keyboardHeight - (Platform.OS === 'android' ? 20 : 0) : 0 }
-          ]}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.textInput, { height: inputHeight }]}
-                placeholder="Type a message..."
-                placeholderTextColor="#999"
-                value={messageText}
-                onChangeText={setMessageText}
-                onContentSizeChange={handleContentSizeChange}
-                multiline
-                onFocus={() => {
-                  setTimeout(() => {
-                    flatListRef.current?.scrollToEnd({ animated: true });
-                  }, 100);
-                }}
-              />
-              <TouchableOpacity 
-                onPress={sendMessage} 
-                style={[styles.sendButton, !messageText.trim() && styles.disabledButton]}
-                disabled={!messageText.trim()}
-              >
-                <Ionicons 
-                  name="send" 
-                  size={24} 
-                  color={messageText.trim() ? "#fff" : "#aaa"} 
-                />
-              </TouchableOpacity>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor="#f8f9fa"
+          translucent={false}
+        />
+        <View style={{ flex: 1 }}>
+          <View style={[styles.header, Platform.OS === 'android' && styles.androidHeader]}>
+            <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+              <Feather name="chevron-left" size={28} color="#333" />
+            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Text style={styles.roomTitle}>{formatRoomTitle(topic)}</Text>
+              <Text style={styles.userInfo}>Your nickname: {nickname}</Text>
             </View>
+            <View style={styles.headerRightPlaceholder} />
           </View>
-        </KeyboardAvoidingView>
-      </View>
-    </SafeAreaView>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="chatbubbles" size={48} color="#6C63FF" />
+              <Text style={styles.loadingText}>Loading messages...</Text>
+            </View>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={chatMessages}
+              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+              renderItem={renderMessage}
+              contentContainerStyle={styles.chatContainer}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="chatbox-outline" size={64} color="#d3d3d3" />
+                  <Text style={styles.emptyText}>No messages yet</Text>
+                  <Text style={styles.emptySubText}>Be the first to say something!</Text>
+                </View>
+              }
+            />
+          )}
+
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.textInput, { height: inputHeight }]}
+                  placeholder="Type a message..."
+                  placeholderTextColor="#999"
+                  value={messageText}
+                  onChangeText={setMessageText}
+                  onContentSizeChange={handleContentSizeChange}
+                  multiline
+                  onFocus={() => {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 100);
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={sendMessage}
+                  style={[styles.sendButton, !messageText.trim() && styles.disabledButton]}
+                  disabled={!messageText.trim()}
+                >
+                  <Ionicons
+                    name="send"
+                    size={24}
+                    color={messageText.trim() ? "#fff" : "#aaa"}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -415,16 +372,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8f9fa",
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
   },
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: "#f8f9fa",
     paddingTop: Platform.OS === 'ios' ? 0 : 8
-  },
-  keyboardAvoidingView: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   androidHeader: {
     paddingTop: 8,
@@ -536,7 +487,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
     maxHeight: 150,
     color: '#333',
-    textAlignVertical: 'center',
+    // Removed textAlignVertical
   },
   sendButton: {
     marginLeft: 12,
@@ -546,7 +497,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    // Removed marginBottom
   },
   disabledButton: {
     backgroundColor: "#e0e0e0",

@@ -4,25 +4,49 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.73%2B-61DAFB)](https://reactnative.dev/)
 [![License](https://img.shields.io/badge/License-MIT-orange)](LICENSE)
 
-![MindMate Banner](./assets/images/logo.png)
+<img src="./assets/images/logo.png" width="800" alt="MindMate Banner">
 
 ## 📱 App Screens
 
 ### Core Features
-| | |
-|:-------------------------:|:-------------------------:|
-| ![Daily Check-In](./assets/screenshots/moodcheckin.png) | ![Mood Analytics](./assets/screenshots/moodanalysis.png) |
-| **Mood Tracking** | **Mood History** |
-| ![Journal](./assets/screenshots/jounral.png) | ![Self-Care](./assets/screenshots/selfcare.png) |
-| **Journaling** | **AI Recommendations** |
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
+  <div>
+    <img src="./assets/screenshots/moodcheckin.png" width="350" alt="Mood Check-In">
+    <p><strong>Mood Tracking</strong></p>
+  </div>
+  <div>
+    <img src="./assets/screenshots/moodanalysis.png" width="350" alt="Mood Analytics">
+    <p><strong>Mood History</strong></p>
+  </div>
+  <div>
+    <img src="./assets/screenshots/jounral.png" width="350" alt="Journal">
+    <p><strong>Journaling</strong></p>
+  </div>
+  <div>
+    <img src="./assets/screenshots/selfcare.png" width="350" alt="Self-Care">
+    <p><strong>AI Recommendations</strong></p>
+  </div>
+</div>
 
 ### Community & Progress
-| | |
-|:-------------------------:|:-------------------------:|
-| ![Community Chat](./assets/screenshots/chat-groups.png) | ![Progress](./assets/screenshots/progress.png)
-| **Support Groups** | **Progress Tracking** |
-| ![Profile](./assets/screenshots/profile.png) | ![Settings](./assets/screenshots/setting.png) |
-| **User Profile** | **Privacy Settings** |
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
+  <div>
+    <img src="./assets/screenshots/chat-groups.png" width="350" alt="Community Chat">
+    <p><strong>Support Groups</strong></p>
+  </div>
+  <div>
+    <img src="./assets/screenshots/progress.png" width="350" alt="Progress Tracking">
+    <p><strong>Progress Tracking</strong></p>
+  </div>
+  <div>
+    <img src="./assets/screenshots/profile.png" width="350" alt="Profile">
+    <p><strong>User Profile</strong></p>
+  </div>
+  <div>
+    <img src="./assets/screenshots/setting.png" width="350" alt="Settings">
+    <p><strong>Privacy Settings</strong></p>
+  </div>
+</div>
 
 ## ✨ Key Features
 - **Daily Mood Check-Ins** with emotional tagging

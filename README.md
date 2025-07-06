@@ -4,24 +4,24 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.73%2B-61DAFB)](https://reactnative.dev/)
 [![License](https://img.shields.io/badge/License-MIT-orange)](LICENSE)
 
-![MindMate Banner](https://i.imgur.com/sample-banner.png)
+![MindMate Banner](./assets/images/logo.png)
 
 ## 📱 App Screens
 
 ### Core Features
 | | |
 |:-------------------------:|:-------------------------:|
-| ![Daily Check-In](./assets/screenshots/moodcheckin.png) | ![Mood Analytics](Screenshot_20250706-230247.png) |
+| ![Daily Check-In](./assets/screenshots/moodcheckin.png) | ![Mood Analytics](./assets/screenshots/moodanalysis.png) |
 | **Mood Tracking** | **Mood History** |
-| ![Journal](Screenshot_20250706-230318.png) | ![Self-Care](Screenshot_20250706-230446.png) |
+| ![Journal](./assets/screenshots/jounral.png) | ![Self-Care](./assets/screenshots/selfcare.png) |
 | **Journaling** | **AI Recommendations** |
 
 ### Community & Progress
 | | |
 |:-------------------------:|:-------------------------:|
-| ![Community Chat](./assets/screenshots/chat-groups.png) |
+| ![Community Chat](./assets/screenshots/chat-groups.png) | ![Progress](./assets/screenshots/progress.png)
 | **Support Groups** | **Progress Tracking** |
-| ![Profile](Screenshot_20250706-230259.png) | ![Settings](Screenshot_2025-07-03_172813.png) |
+| ![Profile](./assets/screenshots/profile.png) | ![Settings](./assets/screenshots/setting.png) |
 | **User Profile** | **Privacy Settings** |
 
 ## ✨ Key Features

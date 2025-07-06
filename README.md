@@ -11,19 +11,19 @@
 ### Core Features
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
   <div>
-    <img src="./assets/screenshots/moodcheckin.png" width="350" alt="Mood Check-In">
+    <img src="./assets/screenshots/moodcheckin.png" width="300" alt="Mood Check-In">
     <p><strong>Mood Tracking</strong></p>
   </div>
   <div>
-    <img src="./assets/screenshots/moodanalysis.png" width="350" alt="Mood Analytics">
+    <img src="./assets/screenshots/moodanalysis.png" width="300" alt="Mood Analytics">
     <p><strong>Mood History</strong></p>
   </div>
   <div>
-    <img src="./assets/screenshots/jounral.png" width="350" alt="Journal">
+    <img src="./assets/screenshots/jounral.png" width="300" alt="Journal">
     <p><strong>Journaling</strong></p>
   </div>
   <div>
-    <img src="./assets/screenshots/selfcare.png" width="350" alt="Self-Care">
+    <img src="./assets/screenshots/selfcare.png" width="300" alt="Self-Care">
     <p><strong>AI Recommendations</strong></p>
   </div>
 </div>
@@ -31,19 +31,19 @@
 ### Community & Progress
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
   <div>
-    <img src="./assets/screenshots/chat-groups.png" width="350" alt="Community Chat">
+    <img src="./assets/screenshots/chat-groups.png" width="300" alt="Community Chat">
     <p><strong>Support Groups</strong></p>
   </div>
   <div>
-    <img src="./assets/screenshots/progress.png" width="350" alt="Progress Tracking">
+    <img src="./assets/screenshots/progress.png" width="300" alt="Progress Tracking">
     <p><strong>Progress Tracking</strong></p>
   </div>
   <div>
-    <img src="./assets/screenshots/profile.png" width="350" alt="Profile">
+    <img src="./assets/screenshots/profile.png" width="300" alt="Profile">
     <p><strong>User Profile</strong></p>
   </div>
   <div>
-    <img src="./assets/screenshots/setting.png" width="350" alt="Settings">
+    <img src="./assets/screenshots/setting.png" width="300" alt="Settings">
     <p><strong>Privacy Settings</strong></p>
   </div>
 </div>

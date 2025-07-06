@@ -4,7 +4,7 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.73%2B-61DAFB)](https://reactnative.dev/)
 [![License](https://img.shields.io/badge/License-MIT-orange)](LICENSE)
 
-<img src="./assets/images/logo.png" width="800" alt="MindMate Banner">
+<img src="./assets/images/logo.png" width="100" alt="MindMate Banner">
 
 ## 📱 App Screens
 

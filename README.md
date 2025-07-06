@@ -10,7 +10,8 @@
 
 ### Core Features
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0;">
-    <div>
+    
+  <div>
     <img src="./assets/screenshots/home.png" width="200" alt="Home">
     <p><strong>Home</strong></p>
   </div>

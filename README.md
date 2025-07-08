@@ -6,6 +6,8 @@
 
 <img src="./assets/images/logo.png" width="100" alt="MindMate Banner">
 
+Backend : https://github.com/rath23/mindmate
+
 ## 📱 App Screens
 
 ### Core Features
